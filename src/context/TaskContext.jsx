@@ -118,11 +118,11 @@ export function getProjectColor(project) {
   return PROJECT_COLORS[project] || { accent: '#64748b', bg: 'bg-slate-500/20', text: 'text-slate-400', border: 'border-slate-500/30' }
 }
 
-export const ETIQUETAS_OPCIONES = ['Laura', 'Lola']
+export const ETIQUETAS_OPCIONES = ['Laura', 'Lola','Sin asignar']
 export const ETIQUETA_COLORS = {
   'Laura': { accent: '#7c6cfc', bg: 'bg-violet-500/15', text: 'text-violet-400', border: 'border-violet-500/30' },
   'Lola':  { accent: '#22d3ee', bg: 'bg-cyan-500/15',   text: 'text-cyan-400',   border: 'border-cyan-500/30' },
-  'Sin etiqueta': { accent: '#64748b', bg: 'bg-slate-500/15', text: 'text-slate-400', border: 'border-slate-500/30' }
+  'Sin asignar': { accent: '#64748b', bg: 'bg-slate-500/15', text: 'text-slate-400', border: 'border-slate-500/30' }
 }
 
 export function getEtiquetaColor(etiqueta) {

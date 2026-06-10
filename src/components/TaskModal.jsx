@@ -144,6 +144,34 @@ export default function TaskModal({ editTask, initialProyecto, onClose, onSave }
             </div>
           </div>
 
+
+          {/* Fila: Tiempos y Planificación */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                <Calendar size={12} /> Inicio <span className="text-[10px] font-normal normal-case text-slate-500">(Opcional)</span>
+              </label>
+              <input
+                type="date"
+                value={fechaInicio}
+                onChange={(e) => setFechaInicio(e.target.value)}
+                className="w-full bg-surface-700 border border-white/5 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:border-accent-violet/50 cursor-pointer"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                <Calendar size={12} /> Vencimiento
+              </label>
+              <input
+                type="date"
+                value={fechaVencimiento}
+                onChange={(e) => setFechaVencimiento(e.target.value)}
+                className="w-full bg-surface-700 border border-white/5 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:border-accent-violet/50 cursor-pointer"
+              />
+            </div>
+          </div>
+
           {/* 3. Cambio: Campo para pegar un enlace (Documento/OneDrive/SharePoint) */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1">
@@ -185,32 +213,7 @@ export default function TaskModal({ editTask, initialProyecto, onClose, onSave }
             />
           </div>
 
-          {/* Fila: Tiempos y Planificación */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                <Calendar size={12} /> Inicio <span className="text-[10px] font-normal normal-case text-slate-500">(Opcional)</span>
-              </label>
-              <input
-                type="date"
-                value={fechaInicio}
-                onChange={(e) => setFechaInicio(e.target.value)}
-                className="w-full bg-surface-700 border border-white/5 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:border-accent-violet/50 cursor-pointer"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                <Calendar size={12} /> Vencimiento
-              </label>
-              <input
-                type="date"
-                value={fechaVencimiento}
-                onChange={(e) => setFechaVencimiento(e.target.value)}
-                className="w-full bg-surface-700 border border-white/5 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:border-accent-violet/50 cursor-pointer"
-              />
-            </div>
-          </div>
+          
 
           {/* Botones de acción */}
           <div className="flex justify-end gap-2 pt-4 border-t border-white/5">
