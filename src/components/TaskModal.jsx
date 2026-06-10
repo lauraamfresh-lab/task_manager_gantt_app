@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { X, FileText, Calendar, Tag, Briefcase, Share2 } from 'lucide-react'
+import { X, FileText, Calendar, Tag, Briefcase } from 'lucide-react'
 import { useTask, ESTADOS } from '../context/TaskContext'
 
 export default function TaskModal({ editTask, initialProyecto, onClose, onSave }) {
@@ -60,7 +60,6 @@ export default function TaskModal({ editTask, initialProyecto, onClose, onSave }
         }
       })
       
-      // Si se activó la sincronización cruzada, avisamos al componente padre
       if (sincronizarHistoria && onSave) {
         onSave(taskData)
       }
@@ -146,7 +145,7 @@ export default function TaskModal({ editTask, initialProyecto, onClose, onSave }
             </div>
             <textarea
               placeholder="Como [usuario], quiero [acción] para [beneficio]... o detalles de la tarea."
-              value={notes = notas}
+              value={notas}
               onChange={(e) => setNotas(e.target.value)}
               className="w-full h-24 bg-surface-700/60 text-xs text-slate-300 placeholder-slate-600 border border-white/5 rounded-lg p-3 focus:outline-none focus:border-accent-violet/40 resize-none leading-relaxed"
             />
