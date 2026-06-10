@@ -118,11 +118,11 @@ export const ESTADO_CONFIG = {
   'Done':        { color: 'text-emerald-400', bg: 'bg-emerald-500/15', border: 'border-emerald-500/30', dot: 'bg-emerald-400' },
 }
 
-// NUEVO GENERADOR DINÁMICO CENTRALIZADO CON 12 COLORES ÚNICOS SCONTRALADOS
-export function getProjectColor(project) {
+// NUEVA ASIGNACIÓN SECUENCIAL FIJA CON 12 COLORES ÚNICOS
+export function getProjectColor(project, proyectosArray = []) {
   const normalized = project?.toUpperCase().trim() || ''
   
-  // Reglas fijas y prioritarias para tus proyectos base
+  // 1. Reglas prioritarias fijas para tus proyectos base
   if (normalized.includes('TES1')) {
     return { accent: '#22d3ee', text: 'text-cyan-400', border: 'border-cyan-500/30', bg: 'bg-cyan-500/10' }
   }
@@ -130,7 +130,7 @@ export function getProjectColor(project) {
     return { accent: '#f59e0b', text: 'text-amber-400', border: 'border-amber-500/30', bg: 'bg-amber-500/10' }
   }
 
-  // Paleta extendida matemática para nuevos proyectos aleatorios
+  // 2. Paleta extendida ordenada de 12 colores únicos
   const fallbackColors = [
     { text: 'text-emerald-400', border: 'border-emerald-500/30', bg: 'bg-emerald-500/10', accent: '#34d399' },
     { text: 'text-blue-400', border: 'border-blue-500/30', bg: 'bg-blue-500/10', accent: '#60a5fa' },
@@ -146,13 +146,13 @@ export function getProjectColor(project) {
     { text: 'text-amber-400', border: 'border-amber-500/30', bg: 'bg-amber-500/10', accent: '#fbbf24' },
   ]
   
-  let hash = 5381
-  for (let i = 0; i < normalized.length; i++) {
-    hash = (hash * 33) ^ normalized.charCodeAt(i)
-  }
+  // 3. Encontrar el índice secuencial real del proyecto en la lista
+  const index = proyectosArray.indexOf(project)
   
-  const index = Math.abs(hash) % fallbackColors.length
-  return fallbackColors[index]
+  // Si por alguna razón no se encuentra, usamos 0 por defecto.
+  const colorIndex = index !== -1 ? index % fallbackColors.length : 0
+  
+  return fallbackColors[colorIndex]
 }
 
 export const ETIQUETAS_OPCIONES = ['Laura', 'Lola', 'Sin asignar']
