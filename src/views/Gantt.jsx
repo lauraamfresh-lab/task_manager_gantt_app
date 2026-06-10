@@ -4,15 +4,16 @@ import { es } from 'date-fns/locale'
 import { BarChart2, Filter, Tag } from 'lucide-react'
 import { useTask, ESTADO_CONFIG, getEtiquetaColor, ETIQUETAS_OPCIONES } from '../context/TaskContext'
 
-// Función auxiliar para generar colores de proyecto consistentes y estéticos
+// Función corregida: Solo colores fríos (azules, verdes, morados) para evitar efecto de "error"
 const getProyectoColor = (projectName) => {
   const colors = [
     { text: 'text-violet-400', border: 'border-violet-500/30', bg: 'bg-violet-500/10' },
     { text: 'text-cyan-400', border: 'border-cyan-500/30', bg: 'bg-cyan-500/10' },
     { text: 'text-emerald-400', border: 'border-emerald-500/30', bg: 'bg-emerald-500/10' },
-    { text: 'text-amber-400', border: 'border-amber-500/30', bg: 'bg-amber-500/10' },
-    { text: 'text-rose-400', border: 'border-rose-500/30', bg: 'bg-rose-500/10' },
+    { text: 'text-blue-400', border: 'border-blue-500/30', bg: 'bg-blue-500/10' },
     { text: 'text-indigo-400', border: 'border-indigo-500/30', bg: 'bg-indigo-500/10' },
+    { text: 'text-purple-400', border: 'border-purple-500/30', bg: 'bg-purple-500/10' },
+    { text: 'text-teal-400', border: 'border-teal-500/30', bg: 'bg-teal-500/10' },
   ]
   let hash = 0
   for (let i = 0; i < projectName.length; i++) {
@@ -150,18 +151,18 @@ export default function Gantt() {
       {/* TIMELINE GANTT */}
       <div className="border border-white/5 rounded-2xl bg-surface-700/30 overflow-hidden shadow-2xl">
         <div className="overflow-x-auto">
-          <div className="min-w-[950px] relative">
+          <div className="min-w-[1050px] relative">
             
-            {/* Rejilla de Fondo / Línea de Hoy */}
-            <div className="absolute inset-0 left-[360px] pointer-events-none flex justify-between z-0">
+            {/* Rejilla de Fondo / Línea de Hoy - Ajustada a 420px */}
+            <div className="absolute inset-0 left-[420px] pointer-events-none flex justify-between z-0">
               {markers.map((_, idx) => <div key={idx} className="w-px h-full border-l border-white/[0.03]" />)}
               {todayPosition !== null && (
                 <div className="absolute top-0 bottom-0 w-0.5 border-l-2 border-dashed border-rose-500/50 z-20" style={{ left: `${todayPosition}%` }} />
               )}
             </div>
 
-            {/* Cabecera fechas */}
-            <div className="grid grid-cols-[360px_1fr] bg-surface-800/90 border-b border-white/10 items-center text-xs font-medium uppercase tracking-wider text-slate-500 h-12 z-10 relative">
+            {/* Cabecera fechas - Ajustada a 420px */}
+            <div className="grid grid-cols-[420px_1fr] bg-surface-800/90 border-b border-white/10 items-center text-xs font-medium uppercase tracking-wider text-slate-500 h-12 z-10 relative">
               <div className="px-5 border-r border-white/5 h-full flex items-center">Tareas Planificadas</div>
               <div className="relative h-full flex justify-between items-center px-4 font-mono text-[10px] text-slate-400">
                 {markers.map((date, i) => (
@@ -177,7 +178,7 @@ export default function Gantt() {
               </div>
             </div>
 
-            {/* Renderizado de Datos (Flujo Plano Completamente Alineado) */}
+            {/* Renderizado de Datos (Flujo Plano Ampliado y Estilizado) */}
             <div className="divide-y divide-white/[0.04]">
               {sortedTareas.length === 0 ? (
                 <div className="p-12 text-center text-sm text-slate-500">No se encontraron tareas coincidentes con los filtros actuales.</div>
@@ -196,11 +197,11 @@ export default function Gantt() {
                   const projColor = getProyectoColor(tarea.proyecto)
                   
                   return (
-                    <div key={tarea.id} className="grid grid-cols-[360px_1fr] items-center hover:bg-white/[0.02] transition-colors min-h-[48px] py-1 relative z-10 border-b border-white/[0.02]">
-                      <div className="px-5 pr-4 flex items-center justify-between gap-3 border-r border-white/5 h-full">
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div key={tarea.id} className="grid grid-cols-[420px_1fr] items-center hover:bg-white/[0.02] transition-colors min-h-[56px] py-2 relative z-10 border-b border-white/[0.02]">
+                      <div className="px-5 pr-4 flex items-center justify-between gap-4 border-r border-white/5 h-full">
+                        <div className="flex items-center gap-4 flex-1 min-w-0">
                           
-                          {/* 1. Identificador de Proyecto (Con estilo estilizado y paleta única por nombre) */}
+                          {/* 1. Identificador de Proyecto (Ancho fijo, colores estéticos no-rojos) */}
                           <span 
                             className={`text-[9px] font-bold px-2 py-0.5 rounded border uppercase text-center w-24 shrink-0 truncate tracking-wider ${projColor.bg} ${projColor.border} ${projColor.text}`} 
                             title={tarea.proyecto}
@@ -208,12 +209,13 @@ export default function Gantt() {
                             {tarea.proyecto}
                           </span>
 
-                          {/* 2. Título de la tarea (Lectura completa sin truncation, salta de línea si es largo) */}
-                          <span className={`text-sm font-medium pr-2 break-words flex-1 ${tarea.estado === 'Done' ? 'line-through text-slate-500 opacity-60' : 'text-slate-300'}`}>
+                          {/* 2. Título de la tarea (Con espacio extra horizontal para evitar apelotonamiento) */}
+                          <span className={`text-sm font-medium pr-2 break-words flex-1 leading-relaxed ${tarea.estado === 'Done' ? 'line-through text-slate-500 opacity-60' : 'text-slate-300'}`}>
                             {tarea.titulo}
                           </span>
                         </div>
                         
+                        {/* 3. Badge de Estado */}
                         <span className={`text-[10px] font-medium rounded-full px-2 py-0.5 border shrink-0 uppercase tracking-wider ${cfg.bg} ${cfg.color} ${cfg.border}`}>
                           {tarea.estado === 'In Progress' ? 'Progreso' : tarea.estado}
                         </span>
