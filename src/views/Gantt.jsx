@@ -4,6 +4,24 @@ import { es } from 'date-fns/locale'
 import { BarChart2, Filter, Tag } from 'lucide-react'
 import { useTask, ESTADO_CONFIG, getEtiquetaColor, ETIQUETAS_OPCIONES } from '../context/TaskContext'
 
+// Función auxiliar para generar colores de proyecto consistentes y estéticos
+const getProyectoColor = (projectName) => {
+  const colors = [
+    { text: 'text-violet-400', border: 'border-violet-500/30', bg: 'bg-violet-500/10' },
+    { text: 'text-cyan-400', border: 'border-cyan-500/30', bg: 'bg-cyan-500/10' },
+    { text: 'text-emerald-400', border: 'border-emerald-500/30', bg: 'bg-emerald-500/10' },
+    { text: 'text-amber-400', border: 'border-amber-500/30', bg: 'bg-amber-500/10' },
+    { text: 'text-rose-400', border: 'border-rose-500/30', bg: 'bg-rose-500/10' },
+    { text: 'text-indigo-400', border: 'border-indigo-500/30', bg: 'bg-indigo-500/10' },
+  ]
+  let hash = 0
+  for (let i = 0; i < projectName.length; i++) {
+    hash = projectName.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  const index = Math.abs(hash) % colors.length
+  return colors[index]
+}
+
 export default function Gantt() {
   const { state } = useTask()
   
@@ -159,7 +177,7 @@ export default function Gantt() {
               </div>
             </div>
 
-            {/* Renderizado de Datos (Flujo Plano Alineado) */}
+            {/* Renderizado de Datos (Flujo Plano Completamente Alineado) */}
             <div className="divide-y divide-white/[0.04]">
               {sortedTareas.length === 0 ? (
                 <div className="p-12 text-center text-sm text-slate-500">No se encontraron tareas coincidentes con los filtros actuales.</div>
@@ -175,30 +193,23 @@ export default function Gantt() {
 
                   const cfg = ESTADO_CONFIG[tarea.estado] || ESTADO_CONFIG['To Do']
                   const tagColor = getEtiquetaColor(tarea.etiqueta)
+                  const projColor = getProyectoColor(tarea.proyecto)
                   
                   return (
-                    <div key={tarea.id} className="grid grid-cols-[360px_1fr] items-center hover:bg-white/[0.02] transition-colors h-12 relative z-10 border-b border-white/[0.02]">
-                      <div className="px-5 pr-4 flex items-center justify-between gap-3 border-r border-white/5 h-full truncate">
-                        <div className="flex items-center gap-3 truncate flex-1">
+                    <div key={tarea.id} className="grid grid-cols-[360px_1fr] items-center hover:bg-white/[0.02] transition-colors min-h-[48px] py-1 relative z-10 border-b border-white/[0.02]">
+                      <div className="px-5 pr-4 flex items-center justify-between gap-3 border-r border-white/5 h-full">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
                           
-                          {/* 1. Identificador de Proyecto (Ancho fijo e inamovible) */}
+                          {/* 1. Identificador de Proyecto (Con estilo estilizado y paleta única por nombre) */}
                           <span 
-                            className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-slate-400 uppercase tracking-wider text-center truncate w-24 shrink-0" 
+                            className={`text-[9px] font-bold px-2 py-0.5 rounded border uppercase text-center w-24 shrink-0 truncate tracking-wider ${projColor.bg} ${projColor.border} ${projColor.text}`} 
                             title={tarea.proyecto}
                           >
                             {tarea.proyecto}
                           </span>
 
-                          {/* 2. Identificador de Etiqueta (Ancho fijo e inamovible) */}
-                          <span 
-                            className="text-[9px] font-semibold py-0.5 rounded border uppercase text-center w-7 shrink-0" 
-                            style={{ backgroundColor: `${tagColor.accent}20`, borderColor: tagColor.accent, color: tagColor.accent }}
-                          >
-                            {tarea.etiqueta ? tarea.etiqueta.substring(0,2) : '—'}
-                          </span>
-
-                          {/* 3. Título de la tarea (Se adapta al espacio restante perfectamente alineado) */}
-                          <span className={`text-sm font-medium truncate ${tarea.estado === 'Done' ? 'line-through text-slate-500 opacity-60' : 'text-slate-300'}`}>
+                          {/* 2. Título de la tarea (Lectura completa sin truncation, salta de línea si es largo) */}
+                          <span className={`text-sm font-medium pr-2 break-words flex-1 ${tarea.estado === 'Done' ? 'line-through text-slate-500 opacity-60' : 'text-slate-300'}`}>
                             {tarea.titulo}
                           </span>
                         </div>
