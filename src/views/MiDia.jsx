@@ -1,12 +1,13 @@
 import React from 'react'
 import { useTask } from '../context/TaskContext'
 import { Sun, AlertCircle } from 'lucide-react'
-import TaskCard from './TaskCard'
+// RUTA CORREGIDA: Salimos de views/ e ingresamos a components/
+import TaskCard from '../components/TaskCard'
 
 export default function MyDay() {
   const { state } = useTask()
 
-  // OBTENER FECHA LOCAL DE FORMA SEGURA (Evita desfases de huso horario UTC de toISOString)
+  // OBTENER FECHA LOCAL DE FORMA SEGURA
   const d = new Date()
   const hoyStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
