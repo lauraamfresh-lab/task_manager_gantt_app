@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { format, parseISO, isPast, isToday, differenceInDays } from 'date-fns'
-import { Plus, ExternalLink, Trash2, Pencil, ChevronDown, ChevronRight, CheckSquare, Square, FileText, Sun } from 'lucide-react'
+import { Plus, ExternalLink, Trash2, Pencil, ChevronDown, ChevronRight, CheckSquare, Square, FileText, Sun, CheckCircle2, RotateCcw } from 'lucide-react'
 import { useTask, ESTADOS, ESTADO_CONFIG, getProjectColor } from '../context/TaskContext'
 import TaskModal from '../components/TaskModal'
 import ProjectModal from '../components/ProjectModal'
@@ -228,13 +228,18 @@ function TareaRow({ tarea, i, tareasLength, onEdit }) {
 }
 
 function ProyectoGroup({ proyecto, tareas, onAdd, onEdit }) {
-  const { dispatch } = useTask()
-  const col = getProjectColor(proyecto)
+  const { state, dispatch } = useTask()
+  // Usamos el estado global (fusionando activos y completados) para mantener el color consistente
+  const todosLosProyectos = [...state.proyectos, ...(state.proyectosCompletados || [])]
+  const col = getProjectColor(proyecto, todosLosProyectos)
+  
   const [isCollapsed, setIsCollapsed] = useState(true)
   const [showCompleted, setShowCompleted] = useState(false)
 
   const tareasActivas = tareas.filter(t => t.estado !== 'Done')
   const tareasCompletadas = tareas.filter(t => t.estado === 'Done')
+
+  const esProyectoCompletado = state.proyectosCompletados?.includes(proyecto)
 
   const handleDeleteProject = (e) => {
     e.stopPropagation()
@@ -243,8 +248,19 @@ function ProyectoGroup({ proyecto, tareas, onAdd, onEdit }) {
     }
   }
 
+  const handleToggleEstadoProyecto = (e) => {
+    e.stopPropagation()
+    if (esProyectoCompletado) {
+      dispatch({ type: 'REACTIVATE_PROJECT', payload: proyecto })
+    } else {
+      if (window.confirm(`¿Marcar "${proyecto}" como completado? Se ocultará de la lista activa pero se mantendrán sus datos.`)) {
+        dispatch({ type: 'COMPLETE_PROJECT', payload: proyecto })
+      }
+    }
+  }
+
   return (
-    <div className="mb-6 bg-surface-700/30 border border-white/5 rounded-2xl overflow-hidden shadow-xl">
+    <div className={`mb-6 border border-white/5 rounded-2xl overflow-hidden shadow-xl transition-all ${esProyectoCompletado ? 'bg-surface-800/30 opacity-80' : 'bg-surface-700/30'}`}>
       <div 
         onClick={() => setIsCollapsed(!isCollapsed)}
         className="px-5 py-3.5 bg-surface-800/60 border-b border-white/5 flex justify-between items-center cursor-pointer select-none"
@@ -254,7 +270,9 @@ function ProyectoGroup({ proyecto, tareas, onAdd, onEdit }) {
             {isCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
           </div>
           <span className={`w-3 h-3 rounded-full`} style={{ backgroundColor: col.accent }} />
-          <h3 className="font-display font-bold text-slate-200 text-base">{proyecto}</h3>
+          <h3 className={`font-display font-bold text-base ${esProyectoCompletado ? 'text-slate-400 line-through' : 'text-slate-200'}`}>
+            {proyecto}
+          </h3>
           <span className="text-xs font-mono text-slate-500 bg-white/5 px-2 py-0.5 rounded-md">
             {tareasActivas.length} activas {tareasCompletadas.length > 0 && `· ${tareasCompletadas.length} hechas`}
           </span>
@@ -262,16 +280,27 @@ function ProyectoGroup({ proyecto, tareas, onAdd, onEdit }) {
         
         <div className="flex items-center gap-1">
           <button 
-            onClick={(e) => { e.stopPropagation(); onAdd(proyecto); }} 
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-surface-600 transition-colors"
-            title="Añadir tarea"
+            onClick={handleToggleEstadoProyecto} 
+            className={`p-1.5 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-medium ${esProyectoCompletado ? 'text-emerald-400 hover:bg-emerald-500/10' : 'text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10'}`}
+            title={esProyectoCompletado ? "Reactivar proyecto" : "Marcar como completado"}
           >
-            <Plus size={16} strokeWidth={2.5} />
+            {esProyectoCompletado ? <><RotateCcw size={16} /> Reactivar</> : <><CheckCircle2 size={16} /> Completar</>}
           </button>
+
+          {!esProyectoCompletado && (
+            <button 
+              onClick={(e) => { e.stopPropagation(); onAdd(proyecto); }} 
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-surface-600 transition-colors"
+              title="Añadir tarea"
+            >
+              <Plus size={16} strokeWidth={2.5} />
+            </button>
+          )}
+
           <button 
             onClick={handleDeleteProject} 
             className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
-            title="Eliminar proyecto"
+            title="Eliminar proyecto permanentemente"
           >
             <Trash2 size={16} strokeWidth={2.5} />
           </button>
@@ -336,10 +365,19 @@ export default function ProyectosYTareas() {
   const [projectModal, setProjectModal] = useState(false)
   const [addModal, setAddModal] = useState(false)
   const [modal, setModal] = useState(null)
+  
+  const [showProyectosCompletados, setShowProyectosCompletados] = useState(false)
 
   const grouped = {}
   state.proyectos.forEach(p => { grouped[p] = [] })
-  state.tareas.forEach(t => { if (grouped[t.proyecto]) grouped[t.proyecto].push(t) })
+
+  const groupedCompletados = {}
+  ;(state.proyectosCompletados || []).forEach(p => { groupedCompletados[p] = [] })
+
+  state.tareas.forEach(t => { 
+    if (grouped[t.proyecto]) grouped[t.proyecto].push(t) 
+    else if (groupedCompletados[t.proyecto]) groupedCompletados[t.proyecto].push(t)
+  })
 
   const interceptarNuevaTarea = (nuevaTarea) => {
     if (nuevaTarea.historia && nuevaTarea.historia.trim() !== '') {
@@ -378,6 +416,26 @@ export default function ProyectosYTareas() {
           <ProyectoGroup key={proyecto} proyecto={proyecto} tareas={tareas} onAdd={(p) => setModal({ proyecto: p })} onEdit={(t) => setModal({ editTask: t })} />
         ))}
       </div>
+
+      {state.proyectosCompletados?.length > 0 && (
+        <div className="mt-12 border-t border-white/10 pt-6">
+          <button
+            onClick={() => setShowProyectosCompletados(!showProyectosCompletados)}
+            className="flex items-center gap-2 text-sm font-semibold text-slate-400 hover:text-slate-200 transition-colors py-2 px-4 rounded-xl bg-surface-800/40 border border-white/5"
+          >
+            {showProyectosCompletados ? <ChevronDown size={18} /> : <ChevronRight size={18} />} 
+            Mostrar Proyectos Completados ({state.proyectosCompletados.length})
+          </button>
+
+          {showProyectosCompletados && (
+            <div className="mt-6 animate-fade-in">
+              {Object.entries(groupedCompletados).map(([proyecto, tareas]) => (
+                <ProyectoGroup key={proyecto} proyecto={proyecto} tareas={tareas} onAdd={(p) => setModal({ proyecto: p })} onEdit={(t) => setModal({ editTask: t })} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {addModal && <TaskModal onClose={() => setAddModal(false)} onSave={interceptarNuevaTarea} />}
       {projectModal && <ProjectModal onClose={() => setProjectModal(false)} />}

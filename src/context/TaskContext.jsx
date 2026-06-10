@@ -1,128 +1,21 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react'
-import { format } from 'date-fns'
-
-const today = format(new Date(), 'yyyy-MM-dd')
-
-const MOCK_DATA = {
-  proyectos: ['Demo Project'],
-  tareas: [
-    {
-      id: '1',
-      titulo: 'Conectar fuente de datos SAP a Power BI',
-      proyecto: 'Demo Project',
-      estado: 'In Progress',
-      fechaInicio: '2025-05-19',
-      fechaVencimiento: today,
-      linkDocumento: 'https://onedrive.live.com',
-      notas: 'Revisar las credenciales del servidor de desarrollo antes del viernes.',
-      etiqueta: 'Laura',
-      checklist: [
-        { id: 'ch-1', texto: 'Solicitar accesos a base de datos', completado: true },
-        { id: 'ch-2', texto: 'Configurar Gateway de Power BI', completado: false }
-      ]
-    },
-    {
-      id: '2',
-      titulo: 'Diseñar dashboard de ventas Q2',
-      proyecto: 'Demo Project',
-      estado: 'To Do',
-      fechaInicio: '2025-05-20',
-      fechaVencimiento: '2025-06-02',
-      linkDocumento: 'https://onedrive.live.com',
-      notas: 'Revisar las credenciales del servidor de desarrollo antes del viernes.',
-      etiqueta: 'Lola',
-      checklist: [
-        { id: 'ch-3', texto: 'Definir KPIs principales', completado: false }
-      ]
-    }
-  ],
-  bugs: [],
-  historias: [
-    { id: 'h-1', proyecto: 'Demo Project', titulo: 'Visualización de márgenes netos', descripcion: 'Como Director Financiero quiero ver el margen neto filtrado por región para tomar decisiones de presupuesto.' }
-  ]
-}
-
-const TaskContext = createContext()
-
-function init() {
-  const local = localStorage.getItem('projectflow_data')
-  if (local) {
-    try {
-      const parsed = JSON.parse(local)
-      if (!parsed.historias) parsed.historias = []
-      return parsed
-    } catch (e) {
-      return MOCK_DATA
-    }
-  }
-  return MOCK_DATA
-}
-
-function reducer(state, action) {
-  switch (action.type) {
-    case 'ADD_PROJECT':
-      return { ...state, proyectos: [...state.proyectos, action.payload] }
-    case 'DELETE_PROJECT':
-      return { 
-        ...state, 
-        proyectos: state.proyectos.filter(p => p !== action.payload),
-        tareas: state.tareas.filter(t => t.proyecto !== action.payload),
-        bugs: (state.bugs || []).filter(b => b.proyecto !== action.payload),
-        historias: (state.historias || []).filter(h => h.proyecto !== action.payload)
-      }
-    case 'ADD_TASK':
-      return { ...state, tareas: [...state.tareas, { ...action.payload, id: Date.now().toString() }] }
-    case 'UPDATE_TASK':
-      return { ...state, tareas: state.tareas.map(t => t.id === action.payload.id ? { ...t, ...action.payload } : t) }
-    case 'DELETE_TASK':
-      return { ...state, tareas: state.tareas.filter(t => t.id !== action.payload) }
-    case 'UPDATE_ESTADO':
-      return { ...state, tareas: state.tareas.map(t => t.id === action.payload.id ? { ...t, estado: action.payload.estado } : t) }
-    case 'ADD_BUG':
-      return { ...state, bugs: [...(state.bugs || []), action.payload] }
-    case 'UPDATE_BUG':
-      return { ...state, bugs: (state.bugs || []).map(b => b.id === action.payload.id ? action.payload : b) }
-    case 'DELETE_BUG':
-      return { ...state, bugs: (state.bugs || []).filter(b => b.id !== action.payload) }
-    case 'ADD_STORY':
-      return { ...state, historias: [...(state.historias || []), { ...action.payload, id: Date.now().toString() }] }
-    case 'UPDATE_STORY':
-      return { ...state, historias: (state.historias || []).map(h => h.id === action.payload.id ? { ...h, ...action.payload } : h) }
-    case 'DELETE_STORY':
-      return { ...state, historias: (state.historias || []).filter(h => h.id !== action.payload) }
-    default:
-      return state
-  }
-}
-
-export function TaskProvider({ children }) {
-  const [state, dispatch] = useReducer(reducer, null, init)
-
-  useEffect(() => {
-    localStorage.setItem('projectflow_data', JSON.stringify(state))
-  }, [state])
-
-  return (
-    <TaskContext.Provider value={{ state, dispatch }}>
-      {children}
-    </TaskContext.Provider>
-  )
-}
-
-export function useTask() { return useContext(TaskContext) }
 
 export const ESTADOS = ['To Do', 'In Progress', 'Done']
+
 export const ESTADO_CONFIG = {
-  'To Do':       { color: 'text-slate-400',  bg: 'bg-slate-500/15',  border: 'border-slate-500/30',  dot: 'bg-slate-400' },
-  'In Progress': { color: 'text-amber-400',  bg: 'bg-amber-500/15',  border: 'border-amber-500/30',  dot: 'bg-amber-400' },
-  'Done':        { color: 'text-emerald-400', bg: 'bg-emerald-500/15', border: 'border-emerald-500/30', dot: 'bg-emerald-400' },
+  'To Do': { bg: 'bg-slate-500/10', color: 'text-slate-400', border: 'border-slate-500/20' },
+  'In Progress': { bg: 'bg-blue-500/10', color: 'text-blue-400', border: 'border-blue-500/30' },
+  'Done': { bg: 'bg-emerald-500/10', color: 'text-emerald-500', border: 'border-emerald-500/20' }
 }
 
-// NUEVA ASIGNACIÓN SECUENCIAL FIJA CON 12 COLORES ÚNICOS
+export const ETIQUETAS_OPCIONES = [
+  'Frontend', 'Backend', 'Diseño', 'DevOps', 'QA', 'Marketing', 'Ventas', 'Legal', 'Otro'
+]
+
+// 1. ASIGNACIÓN SECUENCIAL DE COLORES POR PROYECTO
 export function getProjectColor(project, proyectosArray = []) {
   const normalized = project?.toUpperCase().trim() || ''
   
-  // 1. Reglas prioritarias fijas para tus proyectos base
   if (normalized.includes('TES1')) {
     return { accent: '#22d3ee', text: 'text-cyan-400', border: 'border-cyan-500/30', bg: 'bg-cyan-500/10' }
   }
@@ -130,7 +23,6 @@ export function getProjectColor(project, proyectosArray = []) {
     return { accent: '#f59e0b', text: 'text-amber-400', border: 'border-amber-500/30', bg: 'bg-amber-500/10' }
   }
 
-  // 2. Paleta extendida ordenada de 12 colores únicos
   const fallbackColors = [
     { text: 'text-emerald-400', border: 'border-emerald-500/30', bg: 'bg-emerald-500/10', accent: '#34d399' },
     { text: 'text-blue-400', border: 'border-blue-500/30', bg: 'bg-blue-500/10', accent: '#60a5fa' },
@@ -146,23 +38,114 @@ export function getProjectColor(project, proyectosArray = []) {
     { text: 'text-amber-400', border: 'border-amber-500/30', bg: 'bg-amber-500/10', accent: '#fbbf24' },
   ]
   
-  // 3. Encontrar el índice secuencial real del proyecto en la lista
   const index = proyectosArray.indexOf(project)
-  
-  // Si por alguna razón no se encuentra, usamos 0 por defecto.
   const colorIndex = index !== -1 ? index % fallbackColors.length : 0
   
   return fallbackColors[colorIndex]
 }
 
-export const ETIQUETAS_OPCIONES = ['Laura', 'Lola', 'Sin asignar']
-export const ETIQUETA_COLORS = {
-  'Laura': { accent: '#7c6cfc', bg: 'bg-violet-500/15', text: 'text-violet-400', border: 'border-violet-500/30' },
-  'Lola':  { accent: '#22d3ee', bg: 'bg-cyan-500/15',   text: 'text-cyan-400',   border: 'border-cyan-500/30' },
-  'Sin asignar': { accent: '#64748b', bg: 'bg-slate-500/15', text: 'text-slate-400', border: 'border-slate-500/30' }
+export function getEtiquetaColor(etiqueta) {
+  const map = {
+    'Frontend': { accent: '#60a5fa' },
+    'Backend': { accent: '#34d399' },
+    'Diseño': { accent: '#f472b6' },
+    'DevOps': { accent: '#fb923c' },
+    'QA': { accent: '#a3e635' },
+    'Marketing': { accent: '#c084fc' },
+    'Ventas': { accent: '#2dd4bf' },
+    'Legal': { accent: '#94a3b8' },
+    'Otro': { accent: '#a8a29e' }
+  }
+  return map[etiqueta] || { accent: '#94a3b8' }
 }
 
-export function getEtiquetaColor(etiqueta) {
-  if (!etiqueta) return ETIQUETA_COLORS['Sin asignar']
-  return ETIQUETA_COLORS[etiqueta] || ETIQUETA_COLORS['Sin asignar']
+const initialState = {
+  proyectos: ['Proyecto Principal'],
+  proyectosCompletados: [], // Nuevo estado para proyectos archivados
+  tareas: []
+}
+
+function taskReducer(state, action) {
+  switch (action.type) {
+    case 'ADD_TASK':
+      return { ...state, tareas: [...state.tareas, action.payload] }
+    case 'UPDATE_TASK':
+      return { ...state, tareas: state.tareas.map(t => t.id === action.payload.id ? { ...t, ...action.payload } : t) }
+    case 'DELETE_TASK':
+      return { ...state, tareas: state.tareas.filter(t => t.id !== action.payload) }
+    case 'UPDATE_ESTADO':
+      return { ...state, tareas: state.tareas.map(t => t.id === action.payload.id ? { ...t, estado: action.payload.estado } : t) }
+    case 'ADD_PROJECT':
+      if (state.proyectos.includes(action.payload)) return state
+      return { ...state, proyectos: [...state.proyectos, action.payload] }
+    case 'DELETE_PROJECT':
+      return { 
+        ...state, 
+        proyectos: state.proyectos.filter(p => p !== action.payload),
+        tareas: state.tareas.filter(t => t.proyecto !== action.payload)
+      }
+    case 'COMPLETE_PROJECT':
+      return {
+        ...state,
+        proyectos: state.proyectos.filter(p => p !== action.payload),
+        proyectosCompletados: [...(state.proyectosCompletados || []), action.payload]
+      }
+    case 'REACTIVATE_PROJECT':
+      return {
+        ...state,
+        proyectosCompletados: (state.proyectosCompletados || []).filter(p => p !== action.payload),
+        proyectos: [...state.proyectos, action.payload]
+      }
+    case 'ADD_STORY':
+      const tareaHistoria = {
+        id: Date.now().toString(),
+        proyecto: action.payload.proyecto,
+        titulo: action.payload.titulo,
+        estado: 'To Do',
+        notas: action.payload.descripcion,
+        fechaInicio: new Date().toISOString(),
+        fechaVencimiento: new Date(Date.now() + 86400000).toISOString()
+      }
+      return { ...state, tareas: [...state.tareas, tareaHistoria] }
+    case 'LOAD_DATA':
+      return action.payload
+    default:
+      return state
+  }
+}
+
+const TaskContext = createContext()
+
+export function TaskProvider({ children }) {
+  const [state, dispatch] = useReducer(taskReducer, initialState)
+
+  // Cargar de LocalStorage al iniciar
+  useEffect(() => {
+    const saved = localStorage.getItem('taskData')
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved)
+        // Aseguramos que proyectosCompletados exista al cargar versiones viejas
+        if (!parsed.proyectosCompletados) parsed.proyectosCompletados = []
+        dispatch({ type: 'LOAD_DATA', payload: parsed })
+      } catch (e) {
+        console.error("Error al cargar datos", e)
+      }
+    }
+  }, [])
+
+  // Guardar en LocalStorage al cambiar
+  useEffect(() => {
+    localStorage.setItem('taskData', JSON.stringify(state))
+  }, [state])
+
+  return (
+    <TaskContext.Provider value={{ state, dispatch }}>
+      {children}
+    </TaskContext.Provider>
+  )
+}
+
+export function useTask() {
+  return useContext(TaskContext)
 }

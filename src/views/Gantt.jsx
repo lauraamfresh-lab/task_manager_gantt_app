@@ -11,16 +11,13 @@ export default function Gantt() {
   const [etiquetaFiltrada, setEtiquetaFiltrada] = useState('Todas') 
   const [mostrarCompletadas, setMostrarCompletadas] = useState(false)
   
-  // Estados para controlar la vista y la navegación temporal
-  const [vistaMode, setVistaMode] = useState('mes') // 'semana' | 'mes' | 'tres_meses'
+  const [vistaMode, setVistaMode] = useState('mes')
   const [fechaInicioVista, setFechaInicioVista] = useState(() => 
     startOfWeek(new Date(), { weekStartsOn: 1 })
   )
   
-  // 1. FILTRADO MULTICRITERIO (Modificado con control estricto de fechas vacías)
   const validTareas = useMemo(() => {
     return state.tareas.filter(t => {
-      // Si no existe fecha de inicio o vencimiento, o están vacías, las omitimos por completo para que no rompan el Gantt
       if (!t.fechaInicio || t.fechaInicio.trim() === "" || !t.fechaVencimiento || t.fechaVencimiento.trim() === "") return false
       
       const pasaProyecto = proyectoFiltrado === 'Todos' || t.proyecto === proyectoFiltrado
@@ -30,10 +27,9 @@ export default function Gantt() {
     })
   }, [state.tareas, proyectoFiltrado, etiquetaFiltrada])
 
-  // 2. LÍMITES TEMPORALES DEL TIMELINE
   const timelineBounds = useMemo(() => {
     const min = fechaInicioVista
-    let diasAAnadir = 31 // Vista 'mes' por defecto
+    let diasAAnadir = 31 
     let numMarkers = 8
 
     if (vistaMode === 'semana') {
@@ -59,7 +55,6 @@ export default function Gantt() {
 
   const { minDate, maxDate, totalDays, markers } = timelineBounds
 
-  // Función de navegación temporal según la vista activa
   const navegarTimeline = (direccion) => {
     const delta = vistaMode === 'semana' ? 7 : vistaMode === 'mes' ? 30 : 90
     setFechaInicioVista(prev => addDays(prev, direccion * delta))
@@ -79,7 +74,6 @@ export default function Gantt() {
     return null
   }, [minDate, totalDays])
 
-  // Separar y ordenar tareas activas y completadas
   const tareasActivas = useMemo(() => {
     return [...validTareas]
       .filter(t => t.estado !== 'Done')
@@ -92,7 +86,9 @@ export default function Gantt() {
       .sort((a, b) => parseISO(a.fechaInicio).getTime() - parseISO(b.fechaInicio).getTime())
   }, [validTareas])
 
-  // Función interna reutilizable para renderizar cada fila exactamente como estaba antes
+  // Unificamos lista de proyectos para mantener su color real
+  const todosLosProyectos = [...state.proyectos, ...(state.proyectosCompletados || [])]
+
   const renderFilaGantt = (tarea) => {
     const start = parseISO(tarea.fechaInicio)
     let end = tarea.fechaVencimiento ? parseISO(tarea.fechaVencimiento) : addDays(start, 1)
@@ -104,34 +100,30 @@ export default function Gantt() {
 
     const cfg = ESTADO_CONFIG[tarea.estado] || ESTADO_CONFIG['To Do']
     const tagColor = getEtiquetaColor(tarea.etiqueta)
-    const projColor = getProjectColor(tarea.proyecto)
+    const projColor = getProjectColor(tarea.proyecto, todosLosProyectos)
     
     return (
-      <div key={tarea.id} className="grid grid-cols-[480px_1fr] items-center hover:bg-white/[0.02] transition-colors min-h-[56px] py-2 relative z-10 border-b border-white/[0.02]">
+      <div key={tarea.id} className="grid grid-cols-[540px_1fr] items-center hover:bg-white/[0.02] transition-colors min-h-[56px] py-2 relative z-10 border-b border-white/[0.02]">
         <div className="px-5 pr-4 flex items-center justify-between gap-4 border-r border-white/5 h-full">
           <div className="flex items-center gap-4 flex-1 min-w-0">
             
-            {/* Identificador de Proyecto Único */}
             <span 
-              className={`text-[9px] font-bold px-2 py-0.5 rounded border uppercase text-center w-24 shrink-0 truncate tracking-wider ${projColor.bg} ${projColor.border} ${projColor.text}`} 
+              className={`text-[9px] font-bold px-2 py-0.5 rounded border uppercase text-center w-32 shrink-0 truncate tracking-wider ${projColor.bg} ${projColor.border} ${projColor.text}`} 
               title={tarea.proyecto}
             >
               {tarea.proyecto}
             </span>
 
-            {/* Descripción de la tarea */}
             <span className={`text-sm font-medium pr-2 break-words flex-1 leading-relaxed ${tarea.estado === 'Done' ? 'line-through text-slate-500 opacity-60' : 'text-slate-300'}`}>
               {tarea.titulo}
             </span>
           </div>
           
-          {/* Estado */}
           <span className={`text-[10px] font-medium rounded-full px-2 py-0.5 border shrink-0 uppercase tracking-wider ${cfg.bg} ${cfg.color} ${cfg.border}`}>
             {tarea.estado === 'In Progress' ? 'Progreso' : tarea.estado}
           </span>
         </div>
 
-        {/* Barra de Tiempo en el Timeline */}
         <div className="relative h-full w-full flex items-center px-4">
           <div 
             className="absolute h-6 rounded-lg flex items-center px-2 shadow-md border cursor-default overflow-hidden transition-all duration-150"
@@ -165,7 +157,6 @@ export default function Gantt() {
   return (
     <div className="p-8 animate-fade-in bg-[#0b0f19] min-h-screen text-slate-100">
       
-      {/* Header Superior con Filtros */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
@@ -177,9 +168,7 @@ export default function Gantt() {
           </div>
         </div>
 
-        {/* Panel de Filtros superiores (Vista, Proyecto, Etiqueta) */}
         <div className="flex flex-wrap items-center gap-3">
-          {/* Selector de tipo de Vista (Semana, Mes, 3 Meses) */}
           <div className="flex items-center gap-2 bg-surface-800 border border-white/5 px-3 py-1.5 rounded-xl">
             <Calendar size={13} className="text-slate-400" />
             <span className="text-xs font-medium text-slate-400 mr-1">Vista:</span>
@@ -206,7 +195,7 @@ export default function Gantt() {
               className="bg-transparent text-xs font-semibold text-slate-200 outline-none cursor-pointer"
             >
               <option value="Todos" className="bg-surface-700">Todos</option>
-              {state.proyectos.map(p => <option key={p} value={p} className="bg-surface-700">{p}</option>)}
+              {todosLosProyectos.map(p => <option key={p} value={p} className="bg-surface-700">{p}</option>)}
             </select>
           </div>
 
@@ -225,7 +214,6 @@ export default function Gantt() {
         </div>
       </div>
 
-      {/* LEYENDA INFORMATIVA */}
       <div className="flex flex-wrap gap-4 mb-6 bg-surface-800/40 border border-white/5 p-3 rounded-xl text-xs">
         <span className="text-slate-500 font-medium flex items-center gap-1">Colores por etiqueta:</span>
         {ETIQUETAS_OPCIONES.map(tag => {
@@ -239,7 +227,6 @@ export default function Gantt() {
         })}
       </div>
 
-      {/* CONTROL DE NAVEGACIÓN TEMPORAL (Posicionado justo encima del Gantt, a la derecha) */}
       <div className="flex justify-end mb-3">
         <div className="flex items-center gap-1.5 bg-surface-800/90 border border-white/5 p-1 rounded-xl">
           <button
@@ -275,21 +262,18 @@ export default function Gantt() {
         </div>
       </div>
 
-      {/* TIMELINE GANTT */}
       <div className="border border-white/5 rounded-2xl bg-surface-700/30 overflow-hidden shadow-2xl">
         <div className="overflow-x-auto">
           <div className="min-w-[1100px] relative">
             
-            {/* Rejilla de Fondo */}
-            <div className="absolute inset-0 left-[480px] pointer-events-none flex justify-between z-0">
+            <div className="absolute inset-0 left-[540px] pointer-events-none flex justify-between z-0">
               {markers.map((_, idx) => <div key={idx} className="w-px h-full border-l border-white/[0.03]" />)}
               {todayPosition !== null && (
                 <div className="absolute top-0 bottom-0 w-0.5 border-l-2 border-dashed border-rose-500/50 z-20" style={{ left: `${todayPosition}%` }} />
               )}
             </div>
 
-            {/* Cabecera fechas */}
-            <div className="grid grid-cols-[480px_1fr] bg-surface-800/90 border-b border-white/10 items-center text-xs font-medium uppercase tracking-wider text-slate-500 h-12 z-10 relative">
+            <div className="grid grid-cols-[540px_1fr] bg-surface-800/90 border-b border-white/10 items-center text-xs font-medium uppercase tracking-wider text-slate-500 h-12 z-10 relative">
               <div className="px-5 border-r border-white/5 h-full flex items-center">Tareas Planificadas</div>
               <div className="relative h-full flex justify-between items-center px-4 font-mono text-[10px] text-slate-400">
                 {markers.map((date, i) => (
@@ -305,19 +289,16 @@ export default function Gantt() {
               </div>
             </div>
 
-            {/* Renderizado de Datos */}
             <div className="divide-y divide-white/[0.04]">
               {validTareas.length === 0 ? (
                 <div className="p-12 text-center text-sm text-slate-500">No se encontraron tareas con rango de fechas para mostrar.</div>
               ) : (
                 <>
-                  {/* Bloque 1: Tareas Activas/Pendientes */}
                   {tareasActivas.map(tarea => renderFilaGantt(tarea))}
 
-                  {/* Bloque 2: Desplegable de Tareas Completadas */}
                   {tareasCompletadas.length > 0 && (
                     <div className="bg-[#0e1424]/40">
-                      <div className="grid grid-cols-[480px_1fr] items-center min-h-[44px] border-b border-white/[0.04]">
+                      <div className="grid grid-cols-[540px_1fr] items-center min-h-[44px] border-b border-white/[0.04]">
                         <div className="px-5 h-full flex items-center">
                           <button
                             type="button"
