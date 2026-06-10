@@ -1,6 +1,6 @@
 import React from 'react'
 import { format, parseISO, differenceInDays, startOfDay } from 'date-fns'
-import { Sun, CheckSquare, ListPlus, Trash2, FileText, ExternalLink, CalendarDays } from 'lucide-react'
+import { Sun, CheckSquare, ListPlus, Trash2, FileText, ExternalLink, CalendarDays,AlertTriangle } from 'lucide-react'
 import { useTask, ESTADOS, ESTADO_CONFIG, getProjectColor } from '../context/TaskContext'
 
 function EstadoSelect({ tarea }) {
@@ -45,8 +45,10 @@ function TareaItem({ tarea, hoy, todayStr, onQuitar }) {
           </h3>
 
           {/* Tags de tiempo contextuales */}
-          {tarea.fechaVencimiento === todayStr && (
-            <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded font-medium">Hoy</span>
+          {dueDays < 0 && (
+            <span className="text-[10px] bg-red-500/10 text-red-400 border border-red-500/20 px-1.5 py-0.5 rounded font-medium">
+              Vencida hace {Math.abs(dueDays)} {Math.abs(dueDays) === 1 ? 'día' : 'días'}
+            </span>
           )}
           {dueDays > 0 && dueDays <= 7 && (
             <span className="text-[10px] bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-1.5 py-0.5 rounded font-medium">En {dueDays} {dueDays === 1 ? 'día' : 'días'}</span>
@@ -105,14 +107,34 @@ export default function MiDia() {
     return t.fechaVencimiento === todayStr || t.enMiDia
   })
 
+  // 2. SECCIÓN VENCIDAS
+  const tareasVencidas = state.tareas.filter(t => {
+    if (t.estado === 'Done') return false
+
+    // Las de hoy siguen apareciendo en Mi Día
+    if (t.fechaVencimiento === todayStr) return false
+
+    if (!t.fechaVencimiento) return false
+
+    const dueDays = differenceInDays(
+      parseISO(t.fechaVencimiento),
+      hoy
+    )
+
+    return dueDays < 0
+  })
+
   // 2. SECCIÓN PRÓXIMOS 7 DÍAS: Vencen en la semana (Excluye terminadas y lo que ya está en Hoy)
   const tareasProximos7Dias = state.tareas.filter(t => {
-    if (t.estado === 'Done') return false
-    if (t.fechaVencimiento === todayStr || t.enMiDia) return false // Evita duplicados si se fijó manual
+  if (t.estado === 'Done') return false
+  if (t.fechaVencimiento === todayStr || t.enMiDia) return false
 
-    const dueDays = t.fechaVencimiento ? differenceInDays(parseISO(t.fechaVencimiento), hoy) : -1
-    return dueDays > 0 && dueDays <= 7
-  })
+  const dueDays = t.fechaVencimiento
+    ? differenceInDays(parseISO(t.fechaVencimiento), hoy)
+    : -1
+
+  return dueDays > 0 && dueDays <= 7
+})
 
   // 3. BACKLOG SELECTOR: Tareas que no pertenecen a ninguna de las listas anteriores
   const tareasDisponibles = state.tareas.filter(t => {
@@ -201,6 +223,43 @@ export default function MiDia() {
           )}
         </div>
       </div>
+
+      
+
+      {/* SECCIÓN 2: TAREAS VENCIDAS */}
+      <div className="space-y-4 pt-2">
+        <div className="flex items-center gap-2 text-red-400 font-display font-bold text-base px-1">
+          <AlertTriangle size={16} />
+          <h2>Tareas Vencidas</h2>
+          <span className="text-xs font-mono font-normal text-slate-500 bg-white/5 px-2 py-0.5 rounded-md ml-1">
+            {tareasVencidas.length}
+          </span>
+        </div>
+
+        <div className="space-y-2.5">
+          {tareasVencidas.length === 0 ? (
+            <div className="p-8 border border-dashed border-red-500/20 rounded-2xl text-center text-slate-500 text-xs italic">
+              No hay tareas vencidas.
+            </div>
+          ) : (
+            tareasVencidas.map(tarea => (
+              <div
+                key={tarea.id}
+                className="rounded-xl border border-red-500/20 bg-red-500/5"
+              >
+                <TareaItem
+                  tarea={tarea}
+                  hoy={hoy}
+                  todayStr={todayStr}
+                  onQuitar={handleQuitarDeMiDia}
+                />
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+
 
       {/* SECCIÓN 2: PRÓXIMOS 7 DÍAS */}
       <div className="space-y-4 pt-2">
