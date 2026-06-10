@@ -11,7 +11,7 @@ export default function Gantt() {
   const [etiquetaFiltrada, setEtiquetaFiltrada] = useState('Todas') 
   const [mostrarCompletadas, setMostrarCompletadas] = useState(false)
   
-  // Nuevos estados para controlar la vista y la navegación temporal
+  // Estados para controlar la vista y la navegación temporal
   const [vistaMode, setVistaMode] = useState('mes') // 'semana' | 'mes' | 'tres_meses'
   const [fechaInicioVista, setFechaInicioVista] = useState(() => 
     startOfWeek(new Date(), { weekStartsOn: 1 })
@@ -30,7 +30,7 @@ export default function Gantt() {
     })
   }, [state.tareas, proyectoFiltrado, etiquetaFiltrada])
 
-  // 2. LÍMITES TEMPORALES DEL TIMELINE (Adaptados para soportar navegación y tipos de vista)
+  // 2. LÍMITES TEMPORALES DEL TIMELINE
   const timelineBounds = useMemo(() => {
     const min = fechaInicioVista
     let diasAAnadir = 31 // Vista 'mes' por defecto
@@ -47,7 +47,6 @@ export default function Gantt() {
     const max = addDays(min, diasAAnadir)
     const totalDays = Math.max(1, differenceInDays(max, min))
     
-    // Generar marcadores proporcionales uniformes para mantener la consistencia visual de la cuadrícula
     const markers = []
     for (let i = 0; i < numMarkers; i++) {
       const fraction = i / (numMarkers - 1)
@@ -178,43 +177,8 @@ export default function Gantt() {
           </div>
         </div>
 
-        {/* Panel de Filtros */}
+        {/* Panel de Filtros superiores (Vista, Proyecto, Etiqueta) */}
         <div className="flex flex-wrap items-center gap-3">
-          
-          {/* CONTROL DE NAVEGACIÓN TEMPORAL (Clonado exacto de la Imagen) */}
-          <div className="flex items-center gap-1.5 bg-surface-800/90 border border-white/5 p-1 rounded-xl">
-            <button
-              type="button"
-              onClick={() => navegarTimeline(-1)}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors"
-            >
-              <ChevronLeft size={14} strokeWidth={2.5} />
-            </button>
-            <button
-              type="button"
-              onClick={() => setFechaInicioVista(startOfWeek(new Date(), { weekStartsOn: 1 }))}
-              className="px-2.5 py-1 text-xs font-semibold text-slate-200 bg-white/5 hover:bg-white/10 rounded-md transition-colors"
-            >
-              Hoy
-            </button>
-            <button
-              type="button"
-              onClick={() => navegarTimeline(1)}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors"
-            >
-              <ChevronRight size={14} strokeWidth={2.5} />
-            </button>
-            
-            <div className="h-4 w-px bg-white/10 mx-1" />
-            
-            <div className="flex items-center gap-1.5 text-xs font-mono font-medium text-slate-300 pr-2.5 pl-1">
-              <Calendar size={13} className="text-violet-400" />
-              <span className="lowercase">
-                {format(minDate, 'dd MMM', { locale: es }).replace('.', '')} – {format(maxDate, 'dd MMM yyyy', { locale: es }).replace('.', '')}
-              </span>
-            </div>
-          </div>
-
           {/* Selector de tipo de Vista (Semana, Mes, 3 Meses) */}
           <div className="flex items-center gap-2 bg-surface-800 border border-white/5 px-3 py-1.5 rounded-xl">
             <Calendar size={13} className="text-slate-400" />
@@ -273,6 +237,42 @@ export default function Gantt() {
             </div>
           )
         })}
+      </div>
+
+      {/* CONTROL DE NAVEGACIÓN TEMPORAL (Posicionado justo encima del Gantt, a la derecha) */}
+      <div className="flex justify-end mb-3">
+        <div className="flex items-center gap-1.5 bg-surface-800/90 border border-white/5 p-1 rounded-xl">
+          <button
+            type="button"
+            onClick={() => navegarTimeline(-1)}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors"
+          >
+            <ChevronLeft size={14} strokeWidth={2.5} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setFechaInicioVista(startOfWeek(new Date(), { weekStartsOn: 1 }))}
+            className="px-2.5 py-1 text-xs font-semibold text-slate-200 bg-white/5 hover:bg-white/10 rounded-md transition-colors"
+          >
+            Hoy
+          </button>
+          <button
+            type="button"
+            onClick={() => navegarTimeline(1)}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors"
+          >
+            <ChevronRight size={14} strokeWidth={2.5} />
+          </button>
+          
+          <div className="h-4 w-px bg-white/10 mx-1" />
+          
+          <div className="flex items-center gap-1.5 text-xs font-mono font-medium text-slate-300 pr-2.5 pl-1">
+            <Calendar size={13} className="text-violet-400" />
+            <span className="lowercase">
+              {format(minDate, 'dd MMM', { locale: es }).replace('.', '')} – {format(maxDate, 'dd MMM yyyy', { locale: es }).replace('.', '')}
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* TIMELINE GANTT */}
