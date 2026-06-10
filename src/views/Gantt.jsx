@@ -73,7 +73,7 @@ export default function Gantt() {
     return null
   }, [minDate, totalDays])
 
-  // 3. AGRUPACIÓN POR PROYECTOS ACTIVO
+  // 3. AGRUPACIÓN POR PROYECTOS ACTIVO (Con ordenamiento macro de proyectos por carga de trabajo)
   const groupedProjects = useMemo(() => {
     const groups = {}
     state.proyectos.forEach(p => {
@@ -88,7 +88,14 @@ export default function Gantt() {
       groups[key].sort((a, b) => parseISO(a.fechaInicio).getTime() - parseISO(b.fechaInicio).getTime())
     })
 
-    return Object.entries(groups).filter(([_, tasks]) => tasks.length > 0)
+    // Se filtran los vacíos y se ordenan los proyectos según la fecha de su primera tarea
+    return Object.entries(groups)
+      .filter(([_, tasks]) => tasks.length > 0)
+      .sort((a, b) => {
+        const primerInicioA = parseISO(a[1][0].fechaInicio).getTime()
+        const primerInicioB = parseISO(b[1][0].fechaInicio).getTime()
+        return primerInicioA - primerInicioB
+      })
   }, [validTareas, state.proyectos, proyectoFiltrado])
 
   return (
