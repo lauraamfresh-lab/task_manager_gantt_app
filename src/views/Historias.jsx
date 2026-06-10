@@ -1,11 +1,54 @@
 import React, { useState } from 'react'
-import { BookOpen, Plus, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
+import { BookOpen, Plus, Trash2, ChevronDown, ChevronRight, PlusCircle, Pencil, Check } from 'lucide-react'
 import { useTask, getProjectColor } from '../context/TaskContext'
 
 function ProyectoHistoriaGroup({ proyecto, historias }) {
   const { dispatch } = useTask()
   const col = getProjectColor(proyecto)
   const [isCollapsed, setIsCollapsed] = useState(false)
+  
+  // Estados para edición en línea de la historia
+  const [editingId, setEditingId] = useState(null)
+  const [editTitulo, setEditTitulo] = useState('')
+  const [editDescripcion, setEditDescripcion] = useState('')
+
+  const iniciarEdicion = (h) => {
+    setEditingId(h.id)
+    setEditTitulo(h.titulo)
+    setEditDescripcion(h.descripcion)
+  }
+
+  const guardarEdicion = (id) => {
+    if (!editTitulo.trim()) return
+    dispatch({
+      type: 'UPDATE_STORY', // Si no tienes un UPDATE_STORY, usa la lógica habitual de recrear o mapear en tu reducer
+      payload: { id, proyecto, titulo: editTitulo.trim(), descripcion: editDescripcion.trim() }
+    })
+    setEditingId(null)
+  }
+
+  // Sincronización cruzada: Crear una tarea a partir de esta historia
+  const enviarATareas = (h) => {
+    const confirmacion = window.confirm(`¿Quieres crear una tarea en el proyecto "${proyecto}" basada en este requerimiento?`)
+    if (!confirmacion) return
+
+    dispatch({
+      type: 'ADD_TASK',
+      payload: {
+        id: `task-${Date.now()}`,
+        titulo: h.titulo,
+        proyecto: proyecto,
+        estado: 'To Do',
+        etiqueta: 'Sin etiqueta',
+        historia: h.descripcion,
+        checklist: [],
+        notas: '',
+        fechaInicio: new Date().toISOString().split('T')[0],
+        fechaVencimiento: ''
+      }
+    })
+    alert('¡Tarea añadida y sincronizada con éxito en Proyectos!')
+  }
 
   return (
     <div className="mb-6 bg-surface-700/30 border border-white/5 rounded-2xl overflow-hidden shadow-xl">
@@ -34,19 +77,69 @@ function ProyectoHistoriaGroup({ proyecto, historias }) {
           ) : (
             historias.map(h => (
               <div key={h.id} className="bg-surface-700/40 border border-white/5 rounded-xl p-4 flex justify-between items-start gap-4 hover:border-white/10 transition-colors">
-                <div className="space-y-1.5">
-                  <h4 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
-                    <BookOpen size={14} className="text-slate-500 shrink-0" />
-                    {h.titulo}
-                  </h4>
-                  <p className="text-xs text-slate-400 leading-relaxed pl-5 font-sans">{h.descripcion}</p>
+                
+                {editingId === h.id ? (
+                  <div className="space-y-2 flex-1">
+                    <input 
+                      type="text" 
+                      value={editTitulo} 
+                      onChange={e => setEditTitulo(e.target.value)}
+                      className="w-full bg-surface-600 text-xs font-semibold text-slate-200 rounded px-2 py-1 border border-white/10 focus:outline-none"
+                    />
+                    <textarea 
+                      value={editDescripcion} 
+                      onChange={e => setEditDescripcion(e.target.value)}
+                      rows={2}
+                      className="w-full bg-surface-600 text-xs text-slate-300 rounded p-2 border border-white/10 focus:outline-none resize-none"
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-1.5 flex-1">
+                    <h4 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                      <BookOpen size={14} className="text-slate-500 shrink-0" />
+                      {h.titulo}
+                    </h4>
+                    <p className="text-xs text-slate-400 leading-relaxed pl-5 font-sans whitespace-pre-wrap">{h.descripcion}</p>
+                  </div>
+                )}
+
+                {/* BOTONERA DE ACCIÓN MUTUA */}
+                <div className="flex items-center gap-1 shrink-0">
+                  {editingId === h.id ? (
+                    <button 
+                      onClick={() => guardarEdicion(h.id)}
+                      className="text-emerald-400 hover:text-emerald-300 p-1.5 rounded-lg hover:bg-emerald-500/10 transition-all"
+                      title="Guardar cambios"
+                    >
+                      <Check size={14} />
+                    </button>
+                  ) : (
+                    <>
+                      <button 
+                        onClick={() => enviarATareas(h)}
+                        className="text-violet-400 hover:text-violet-300 p-1.5 rounded-lg hover:bg-violet-500/10 transition-all"
+                        title="Añadir a tareas del proyecto"
+                      >
+                        <PlusCircle size={14} />
+                      </button>
+                      <button 
+                        onClick={() => iniciarEdicion(h)}
+                        className="text-slate-400 hover:text-slate-200 p-1.5 rounded-lg hover:bg-surface-500/30 transition-all"
+                        title="Editar historia"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    </>
+                  )}
+                  <button 
+                    onClick={() => dispatch({ type: 'DELETE_STORY', payload: h.id })}
+                    className="text-slate-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-500/10 transition-all"
+                    title="Borrar historia"
+                  >
+                    <Trash2 size={14} />
+                  </button>
                 </div>
-                <button 
-                  onClick={() => dispatch({ type: 'DELETE_STORY', payload: h.id })}
-                  className="text-slate-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-500/10 transition-all shrink-0"
-                >
-                  <Trash2 size={14} />
-                </button>
+
               </div>
             ))
           )}
@@ -59,12 +152,10 @@ function ProyectoHistoriaGroup({ proyecto, historias }) {
 export default function Historias() {
   const { state, dispatch } = useTask()
   
-  // Estados para el formulario de creación
   const [titulo, setTitulo] = useState('')
   const [descripcion, setDescripcion] = useState('')
   const [proyecto, setProyecto] = useState(state.proyectos[0] || '')
 
-  // Agrupar historias por proyecto dinámicamente
   const groupedHistorias = {}
   state.proyectos.forEach(p => { groupedHistorias[p] = [] })
   if (state.historias) {
@@ -81,7 +172,12 @@ export default function Historias() {
     
     dispatch({
       type: 'ADD_STORY',
-      payload: { proyecto, titulo: titulo.trim(), descripcion: descripcion.trim() }
+      payload: { 
+        id: `us-${Date.now()}`,
+        proyecto, 
+        titulo: titulo.trim(), 
+        descripcion: descripcion.trim() 
+      }
     })
     setTitulo('')
     setDescripcion('')
@@ -90,7 +186,6 @@ export default function Historias() {
   return (
     <div className="p-8 animate-fade-in max-w-5xl mx-auto space-y-8 text-slate-100">
       
-      {/* Header */}
       <div className="flex items-center gap-3">
         <div className="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
           <BookOpen size={18} className="text-accent-violet" />
@@ -101,7 +196,6 @@ export default function Historias() {
         </div>
       </div>
 
-      {/* Formulario de creación */}
       <form onSubmit={handleSubmit} className="bg-surface-700/40 border border-white/5 rounded-2xl p-5 space-y-4 shadow-xl">
         <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
           <Plus size={14} /> Nuevo Requerimiento
@@ -149,7 +243,6 @@ export default function Historias() {
         </div>
       </form>
 
-      {/* Renderizado de Proyectos con sus Historias */}
       <div className="space-y-2">
         {Object.entries(groupedHistorias).map(([proyectoName, historiasList]) => (
           <ProyectoHistoriaGroup 

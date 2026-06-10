@@ -78,6 +78,8 @@ function reducer(state, action) {
       return { ...state, bugs: (state.bugs || []).filter(b => b.id !== action.payload) }
     case 'ADD_STORY':
       return { ...state, historias: [...(state.historias || []), { ...action.payload, id: Date.now().toString() }] }
+    case 'UPDATE_STORY':
+      return { ...state, historias: (state.historias || []).map(h => h.id === action.payload.id ? { ...h, ...action.payload } : h) }
     case 'DELETE_STORY':
       return { ...state, historias: (state.historias || []).filter(h => h.id !== action.payload) }
     default:
@@ -103,9 +105,9 @@ export function useTask() { return useContext(TaskContext) }
 
 export const ESTADOS = ['To Do', 'In Progress', 'Done']
 export const ESTADO_CONFIG = {
-  'To Do':      { color: 'text-slate-400',  bg: 'bg-slate-500/15',  border: 'border-slate-500/30',  dot: 'bg-slate-400' },
+  'To Do':       { color: 'text-slate-400',  bg: 'bg-slate-500/15',  border: 'border-slate-500/30',  dot: 'bg-slate-400' },
   'In Progress':{ color: 'text-amber-400',  bg: 'bg-amber-500/15',  border: 'border-amber-500/30',  dot: 'bg-amber-400' },
-  'Done':       { color: 'text-emerald-400',bg: 'bg-emerald-500/15',border: 'border-emerald-500/30',dot: 'bg-emerald-400' },
+  'Done':        { color: 'text-emerald-400',bg: 'bg-emerald-500/15',border: 'border-emerald-500/30',dot: 'bg-emerald-400' },
 }
 
 export const PROJECT_COLORS = {

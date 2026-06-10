@@ -1,26 +1,25 @@
 import React, { useState, useEffect } from 'react'
-import { X, FileText, Calendar, Tag, Briefcase } from 'lucide-react'
+import { X, FileText, Calendar, Tag, Briefcase, Share2 } from 'lucide-react'
 import { useTask, ESTADOS } from '../context/TaskContext'
 
-export default function TaskModal({ editTask, initialProyecto, onClose }) {
+export default function TaskModal({ editTask, initialProyecto, onClose, onSave }) {
   const { state, dispatch } = useTask()
   
   // Estados del formulario
   const [titulo, setTitulo] = useState('')
   const [proyecto, setProyecto] = useState('')
   const [estado, setEstado] = useState('To Do')
-  const [fechaInicio, setFechaInicio] = useState('') // Ahora permite string vacío (Opcional)
+  const [fechaInicio, setFechaInicio] = useState('')
   const [fechaVencimiento, setFechaVencimiento] = useState('')
   const [etiqueta, setEtiqueta] = useState('')
-  const [notas, setNotas] = useState('') // Aquí se almacena la Historia / Requerimiento
+  const [notas, setNotas] = useState('')
+  const [sincronizarHistoria, setSincronizarHistoria] = useState(false)
 
   useEffect(() => {
-    // Si hay un proyecto inicial por contexto
     if (state.proyectos.length > 0) {
       setProyecto(initialProyecto || state.proyectos[0])
     }
 
-    // Si estamos editando una tarea existente
     if (editTask) {
       setTitulo(editTask.titulo || '')
       setProyecto(editTask.proyecto || '')
@@ -29,6 +28,7 @@ export default function TaskModal({ editTask, initialProyecto, onClose }) {
       setFechaVencimiento(editTask.fechaVencimiento || '')
       setEtiqueta(editTask.etiqueta || '')
       setNotas(editTask.notas || '')
+      setSincronizarHistoria(!!editTask.historia)
     }
   }, [editTask, initialProyecto, state.proyectos])
 
@@ -40,11 +40,11 @@ export default function TaskModal({ editTask, initialProyecto, onClose }) {
       titulo: titulo.trim(),
       proyecto,
       estado,
-      // Si la fecha de inicio está vacía, se guarda como null de forma segura
       fechaInicio: fechaInicio || null, 
       fechaVencimiento: fechaVencimiento || null,
       etiqueta: etiqueta.trim(),
       notas: notas.trim(),
+      historia: sincronizarHistoria ? notas.trim() : null
     }
 
     if (editTask) {
@@ -59,6 +59,11 @@ export default function TaskModal({ editTask, initialProyecto, onClose }) {
           ...taskData
         }
       })
+      
+      // Si se activó la sincronización cruzada, avisamos al componente padre
+      if (sincronizarHistoria && onSave) {
+        onSave(taskData)
+      }
     }
     onClose()
   }
@@ -122,14 +127,28 @@ export default function TaskModal({ editTask, initialProyecto, onClose }) {
 
           {/* Caja de Historia de Usuario / Requerimiento */}
           <div className="space-y-1.5 bg-surface-750 p-3.5 rounded-xl border border-white/5">
-            <label className="text-xs font-semibold uppercase tracking-wider text-accent-violet flex items-center gap-1.5">
-              <FileText size={13} /> Historia de Usuario / Requerimiento
-            </label>
+            <div className="flex justify-between items-center mb-1">
+              <label className="text-xs font-semibold uppercase tracking-wider text-accent-violet flex items-center gap-1.5">
+                <FileText size={13} /> Requerimiento o Notas
+              </label>
+              
+              {!editTask && (
+                <label className="flex items-center gap-1.5 text-[11px] text-slate-400 cursor-pointer select-none">
+                  <input 
+                    type="checkbox" 
+                    checked={sincronizarHistoria} 
+                    onChange={(e) => setSincronizarHistoria(e.target.checked)}
+                    className="accent-accent-violet rounded"
+                  />
+                  ¿Duplicar en módulo Historias?
+                </label>
+              )}
+            </div>
             <textarea
-              placeholder="Como [usuario], quiero [acción] para [beneficio]... o pega aquí los criterios de aceptación."
-              value={notas}
+              placeholder="Como [usuario], quiero [acción] para [beneficio]... o detalles de la tarea."
+              value={notes = notas}
               onChange={(e) => setNotas(e.target.value)}
-              className="w-full h-28 bg-surface-700/60 text-xs text-slate-300 placeholder-slate-600 border border-white/5 rounded-lg p-3 focus:outline-none focus:border-accent-violet/40 resize-none leading-relaxed"
+              className="w-full h-24 bg-surface-700/60 text-xs text-slate-300 placeholder-slate-600 border border-white/5 rounded-lg p-3 focus:outline-none focus:border-accent-violet/40 resize-none leading-relaxed"
             />
           </div>
 
@@ -143,7 +162,7 @@ export default function TaskModal({ editTask, initialProyecto, onClose }) {
                 type="date"
                 value={fechaInicio}
                 onChange={(e) => setFechaInicio(e.target.value)}
-                className="w-full bg-surface-700 border border-white/5 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:border-accent-violet/50 cursor-pointer text-left"
+                className="w-full bg-surface-700 border border-white/5 rounded-xl px-4 py-2 text-sm text-slate-200 focus:outline-none focus:border-accent-violet/50 cursor-pointer"
               />
             </div>
 

@@ -111,7 +111,7 @@ function TareaRow({ tarea, i, tareasLength, onEdit }) {
             {tarea.enMiDia && <Sun size={12} className="text-amber-400 fill-amber-400/20 shrink-0" />}
 
             <span className="text-[10px] bg-white/5 border border-white/10 text-slate-400 px-2 py-0.5 rounded-md font-medium shrink-0 normal-case no-underline flex items-center gap-1">
-              👤 {tarea.etiqueta || 'Sin asignar'}
+              {tarea.etiqueta && tarea.etiqueta !== 'Sin etiqueta' ? `👤 ${tarea.etiqueta}` : '👤 Sin asignar'}
             </span>
           </span>
           <div className="flex gap-2 mt-1 pl-5">
@@ -123,6 +123,11 @@ function TareaRow({ tarea, i, tareasLength, onEdit }) {
             {notas.trim().length > 0 && (
               <span className="text-[10px] text-slate-500 flex items-center gap-1 bg-white/5 px-1.5 py-0.5 rounded">
                 <FileText size={10} /> Notas
+              </span>
+            )}
+            {tarea.historia && tarea.historia.trim().length > 0 && (
+              <span className="text-[10px] text-violet-400 flex items-center gap-1 bg-violet-500/10 border border-violet-500/20 px-1.5 py-0.5 rounded font-medium">
+                📄 Req Sincronizado
               </span>
             )}
           </div>
@@ -197,14 +202,24 @@ function TareaRow({ tarea, i, tareasLength, onEdit }) {
             </form>
           </div>
 
-          <div className="space-y-2 flex flex-col">
-            <h4 className="text-xs font-semibold uppercase text-slate-400 flex items-center gap-1.5"><FileText size={13} /> Notas</h4>
-            <textarea
-              value={notas}
-              onChange={e => dispatch({ type: 'UPDATE_TASK', payload: { id: tarea.id, notas: e.target.value } })}
-              placeholder="Escribe comentarios o detalles... (Se guarda automáticamente)"
-              className="w-full flex-1 min-h-[100px] bg-surface-700/60 text-xs text-slate-300 placeholder-slate-600 border border-white/5 rounded-xl p-3 focus:outline-none focus:border-accent-violet/50 resize-none leading-relaxed"
-            />
+          <div className="space-y-4 flex flex-col">
+            {tarea.historia && (
+              <div className="space-y-1">
+                <h4 className="text-xs font-semibold uppercase text-violet-400 flex items-center gap-1.5">📄 Historia de Usuario</h4>
+                <div className="bg-violet-950/20 border border-violet-500/10 rounded-xl p-3 text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">
+                  {tarea.historia}
+                </div>
+              </div>
+            )}
+            <div className="space-y-2 flex flex-col flex-1">
+              <h4 className="text-xs font-semibold uppercase text-slate-400 flex items-center gap-1.5"><FileText size={13} /> Notas</h4>
+              <textarea
+                value={notas}
+                onChange={e => dispatch({ type: 'UPDATE_TASK', payload: { id: tarea.id, notas: e.target.value } })}
+                placeholder="Escribe comentarios o detalles... (Se guarda automáticamente)"
+                className="w-full flex-1 min-h-[80px] bg-surface-700/60 text-xs text-slate-300 placeholder-slate-600 border border-white/5 rounded-xl p-3 focus:outline-none focus:border-accent-violet/50 resize-none leading-relaxed"
+              />
+            </div>
           </div>
         </div>
       )}
@@ -215,9 +230,8 @@ function TareaRow({ tarea, i, tareasLength, onEdit }) {
 function ProyectoGroup({ proyecto, tareas, onAdd, onEdit }) {
   const col = getProjectColor(proyecto)
   const [isCollapsed, setIsCollapsed] = useState(true)
-  const [showCompleted, setShowCompleted] = useState(false) // ◄ Estado para el colapsable de completadas
+  const [showCompleted, setShowCompleted] = useState(false)
 
-  // Separación inteligente de tareas por estado
   const tareasActivas = tareas.filter(t => t.estado !== 'Done')
   const tareasCompletadas = tareas.filter(t => t.estado === 'Done')
 
@@ -251,7 +265,6 @@ function ProyectoGroup({ proyecto, tareas, onAdd, onEdit }) {
             <div className="p-6 text-center text-xs text-slate-500 italic">No hay tareas en este proyecto. ¡Crea una nueva!</div>
           ) : (
             <div>
-              {/* Encabezados de la Tabla */}
               <div className="grid grid-cols-[1fr_130px_100px_80px_70px_60px] px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500 bg-surface-800/20 border-b border-white/4">
                 <div>Tarea</div>
                 <div>Estado</div>
@@ -261,7 +274,6 @@ function ProyectoGroup({ proyecto, tareas, onAdd, onEdit }) {
                 <div className="text-end">Acción</div>
               </div>
 
-              {/* Bloque de Tareas Activas */}
               <div>
                 {tareasActivas.map((tarea, index) => (
                   <TareaRow key={tarea.id} tarea={tarea} i={index} tareasLength={tareasActivas.length} onEdit={onEdit} />
@@ -273,7 +285,6 @@ function ProyectoGroup({ proyecto, tareas, onAdd, onEdit }) {
                 )}
               </div>
 
-              {/* ◄ MENÚ COLAPSABLE: Bloque de Tareas Completadas */}
               {tareasCompletadas.length > 0 && (
                 <div className="border-t border-white/4 bg-surface-800/10">
                   <button
@@ -293,7 +304,6 @@ function ProyectoGroup({ proyecto, tareas, onAdd, onEdit }) {
                   )}
                 </div>
               )}
-
             </div>
           )}
         </>
@@ -303,7 +313,7 @@ function ProyectoGroup({ proyecto, tareas, onAdd, onEdit }) {
 }
 
 export default function ProyectosYTareas() {
-  const { state } = useTask()
+  const { state, dispatch } = useTask()
   const [projectModal, setProjectModal] = useState(false)
   const [addModal, setAddModal] = useState(false)
   const [modal, setModal] = useState(null)
@@ -311,6 +321,20 @@ export default function ProyectosYTareas() {
   const grouped = {}
   state.proyectos.forEach(p => { grouped[p] = [] })
   state.tareas.forEach(t => { if (grouped[t.proyecto]) grouped[t.proyecto].push(t) })
+
+  // Manejador centralizado para capturar cuando se crea una tarea desde TaskModal y sincronizarla con Historias
+  const interceptarNuevaTarea = (nuevaTarea) => {
+    if (nuevaTarea.historia && nuevaTarea.historia.trim() !== '') {
+      dispatch({
+        type: 'ADD_STORY',
+        payload: {
+          proyecto: nuevaTarea.proyecto,
+          titulo: `Req: ${nuevaTarea.titulo}`,
+          descripcion: nuevaTarea.historia
+        }
+      })
+    }
+  }
 
   return (
     <div className="p-8 animate-fade-in max-w-7xl mx-auto">
@@ -337,9 +361,9 @@ export default function ProyectosYTareas() {
         ))}
       </div>
 
-      {addModal && <TaskModal onClose={() => setAddModal(false)} />}
+      {addModal && <TaskModal onClose={() => setAddModal(false)} onSave={interceptarNuevaTarea} />}
       {projectModal && <ProjectModal onClose={() => setProjectModal(false)} />}
-      {modal && !modal.editTask && <TaskModal initialProyecto={modal.proyecto} onClose={() => setModal(null)} />}
+      {modal && !modal.editTask && <TaskModal initialProyecto={modal.proyecto} onClose={() => setModal(null)} onSave={interceptarNuevaTarea} />}
       {modal?.editTask && <TaskModal editTask={modal.editTask} onClose={() => setModal(null)} />}
     </div>
   )
