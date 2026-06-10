@@ -113,7 +113,7 @@ export default function Gantt() {
             
             {/* Identificador de Proyecto Único */}
             <span 
-              className={`text-[9px] font-bold px-2 py-0.5 rounded border uppercase text-center w-32 shrink-0 truncate tracking-wider ${projColor.bg} ${projColor.border} ${projColor.text}`} 
+              className={`text-[9px] font-bold px-2 py-0.5 rounded border uppercase text-center w-28 shrink-0 truncate tracking-wider ${projColor.bg} ${projColor.border} ${projColor.text}`} 
               title={tarea.proyecto}
             >
               {tarea.proyecto}
