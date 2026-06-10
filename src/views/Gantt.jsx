@@ -4,10 +4,11 @@ import { es } from 'date-fns/locale'
 import { BarChart2, Filter, Tag, ChevronDown, ChevronRight, Calendar } from 'lucide-react'
 import { useTask, ESTADO_CONFIG, getEtiquetaColor, ETIQUETAS_OPCIONES } from '../context/TaskContext'
 
-// Asignación de colores únicos y fijos por proyecto
+// Asignación de colores únicos, estables y ampliados por proyecto
 const getProyectoColor = (projectName) => {
   const normalized = projectName?.toUpperCase().trim() || ''
   
+  // Reglas fijas prioritarias conocidas
   if (normalized.includes('TES1')) {
     return { text: 'text-cyan-400', border: 'border-cyan-500/30', bg: 'bg-cyan-500/10' }
   }
@@ -15,18 +16,28 @@ const getProyectoColor = (projectName) => {
     return { text: 'text-violet-400', border: 'border-violet-500/30', bg: 'bg-violet-500/10' }
   }
 
+  // MATRIZ AMPLIADA DE 12 COLORES: Evita la repetición inmediata por limitación de opciones
   const fallbackColors = [
     { text: 'text-emerald-400', border: 'border-emerald-500/30', bg: 'bg-emerald-500/10' },
     { text: 'text-blue-400', border: 'border-blue-500/30', bg: 'bg-blue-500/10' },
-    { text: 'text-teal-400', border: 'border-teal-500/30', bg: 'bg-teal-500/10' },
+    { text: 'text-amber-400', border: 'border-amber-500/30', bg: 'bg-amber-500/10' },
+    { text: 'text-rose-400', border: 'border-rose-500/30', bg: 'bg-rose-500/10' },
     { text: 'text-purple-400', border: 'border-purple-500/30', bg: 'bg-purple-500/10' },
+    { text: 'text-orange-400', border: 'border-orange-500/30', bg: 'bg-orange-500/10' },
+    { text: 'text-fuchsia-400', border: 'border-fuchsia-500/30', bg: 'bg-fuchsia-500/10' },
+    { text: 'text-sky-400', border: 'border-sky-500/30', bg: 'bg-sky-500/10' },
+    { text: 'text-lime-400', border: 'border-lime-500/30', bg: 'bg-lime-500/10' },
+    { text: 'text-pink-400', border: 'border-pink-500/30', bg: 'bg-pink-500/10' },
+    { text: 'text-teal-400', border: 'border-teal-500/30', bg: 'bg-teal-500/10' },
     { text: 'text-indigo-400', border: 'border-indigo-500/30', bg: 'bg-indigo-500/10' },
   ]
   
-  let hash = 0
+  // Algoritmo matemático DJB2 adaptado para dispersar las strings uniformemente
+  let hash = 5381
   for (let i = 0; i < normalized.length; i++) {
-    hash = normalized.charCodeAt(i) + ((hash << 5) - hash)
+    hash = (hash * 33) ^ normalized.charCodeAt(i)
   }
+  
   const index = Math.abs(hash) % fallbackColors.length
   return fallbackColors[index]
 }
@@ -37,7 +48,7 @@ export default function Gantt() {
   const [proyectoFiltrado, setProyectoFiltrado] = useState('Todos')
   const [etiquetaFiltrada, setEtiquetaFiltrada] = useState('Todas') 
   const [mostrarCompletadas, setMostrarCompletadas] = useState(false)
-  const [vistaTemporal, setVistaTemporal] = useState('Mes') // Nuevo estado para la vista
+  const [vistaTemporal, setVistaTemporal] = useState('Mes')
   
   // 1. FILTRADO MULTICRITERIO (Control estricto de strings de fecha)
   const validTareas = useMemo(() => {
@@ -57,7 +68,6 @@ export default function Gantt() {
 
   // 2. LÍMITES TEMPORALES DEL TIMELINE (Dinámico según la vista seleccionada)
   const timelineBounds = useMemo(() => {
-    // Configurar días y separación según la vista elegida
     let days = 30
     let step = 5
     
@@ -201,7 +211,7 @@ export default function Gantt() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          {/* Selector de Vista Temporal (Nuevo) */}
+          {/* Selector de Vista Temporal */}
           <div className="flex items-center gap-2 bg-surface-800 border border-white/5 px-3 py-1.5 rounded-xl">
             <Calendar size={13} className="text-slate-400" />
             <span className="text-xs font-medium text-slate-400 mr-1">Vista:</span>
@@ -272,7 +282,7 @@ export default function Gantt() {
               <div className="relative h-full flex justify-between items-center px-4 font-mono text-[10px] text-slate-400">
                 {markers.map((date, i) => (
                   <span key={i} className="transform -translate-x-1/2 whitespace-nowrap">
-                    {format(date, 'dd MMM', { locale: es })}
+                    {format(date, vistaTemporal === 'Semana' ? 'dd MMM (eee)' : 'dd MMM', { locale: es })}
                   </span>
                 ))}
                 {todayPosition !== null && (
