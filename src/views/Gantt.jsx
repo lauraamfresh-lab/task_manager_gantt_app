@@ -40,10 +40,11 @@ export default function Gantt() {
   const [etiquetaFiltrada, setEtiquetaFiltrada] = useState('Todas') 
   const [mostrarCompletadas, setMostrarCompletadas] = useState(false)
   
-  // 1. FILTRADO MULTICRITERIO
+  // 1. FILTRADO MULTICRITERIO (Modificado con control estricto de fechas vacías)
   const validTareas = useMemo(() => {
     return state.tareas.filter(t => {
-      if (!t.fechaInicio) return false
+      // Si no existe fecha de inicio o vencimiento, o están vacías, las omitimos por completo para que no rompan el Gantt
+      if (!t.fechaInicio || t.fechaInicio.trim() === "" || !t.fechaVencimiento || t.fechaVencimiento.trim() === "") return false
       
       const pasaProyecto = proyectoFiltrado === 'Todos' || t.proyecto === proyectoFiltrado
       const pasaEtiqueta = etiquetaFiltrada === 'Todas' || t.etiqueta === etiquetaFiltrada
@@ -268,7 +269,7 @@ export default function Gantt() {
             {/* Renderizado de Datos */}
             <div className="divide-y divide-white/[0.04]">
               {validTareas.length === 0 ? (
-                <div className="p-12 text-center text-sm text-slate-500">No se encontraron tareas coincidentes con los filtros actuales.</div>
+                <div className="p-12 text-center text-sm text-slate-500">No se encontraron tareas con rango de fechas para mostrar.</div>
               ) : (
                 <>
                   {/* Bloque 1: Tareas Activas/Pendientes */}
