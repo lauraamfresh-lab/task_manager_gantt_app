@@ -38,12 +38,11 @@ export default function Gantt() {
   const [etiquetaFiltrada, setEtiquetaFiltrada] = useState('Todas') 
   const [mostrarCompletadas, setMostrarCompletadas] = useState(false)
   
-  // 1. FILTRADO MULTICRITERIO (Control estricto de fechas)
+  // 1. FILTRADO MULTICRITERIO (Control estricto de strings de fecha)
   const validTareas = useMemo(() => {
     return state.tareas.filter(t => {
       if (!t.fechaInicio || t.fechaInicio.trim() === "" || !t.fechaVencimiento || t.fechaVencimiento.trim() === "") return false
       
-      // Control de protección contra strings corruptos que parseISO rompe como NaN
       const startMs = parseISO(t.fechaInicio).getTime()
       const endMs = parseISO(t.fechaVencimiento).getTime()
       if (isNaN(startMs) || isNaN(endMs)) return false
@@ -55,15 +54,17 @@ export default function Gantt() {
     })
   }, [state.tareas, proyectoFiltrado, etiquetaFiltrada])
 
-  // 2. LÍMITES TEMPORALES DEL TIMELINE (Blindado contra NaNs)
+  // 2. LÍMITES TEMPORALES DEL TIMELINE (Blindado contra arrays vacíos e Infinity)
   const timelineBounds = useMemo(() => {
-    if (validTareas.length === 0) {
+    // PROTECCIÓN CRÍTICA: Si tras filtrar no quedan tareas, frena el flujo aquí y evita calcular Math.min/max
+    if (!validTareas || validTareas.length === 0) {
       return { minDate: new Date(), maxDate: addDays(new Date(), 7), totalDays: 7, markers: [] }
     }
 
     const starts = validTareas.map(t => parseISO(t.fechaInicio).getTime()).filter(time => !isNaN(time))
     const ends = validTareas.map(t => t.fechaVencimiento ? parseISO(t.fechaVencimiento).getTime() : parseISO(t.fechaInicio).getTime() + 86400000).filter(time => !isNaN(time))
 
+    // Segunda protección si los arrays de milisegundos se vacían por cualquier razón
     if (starts.length === 0 || ends.length === 0) {
       return { minDate: new Date(), maxDate: addDays(new Date(), 7), totalDays: 7, markers: [] }
     }
@@ -87,6 +88,7 @@ export default function Gantt() {
   const { minDate, totalDays, markers } = timelineBounds
 
   const getPercentagePosition = (dateObj) => {
+    if (!totalDays || totalDays <= 0) return 0
     const diff = differenceInDays(dateObj, minDate)
     return Math.min(100, Math.max(0, (diff / totalDays) * 100))
   }
@@ -257,7 +259,7 @@ export default function Gantt() {
 
             <div className="divide-y divide-white/[0.04]">
               {validTareas.length === 0 ? (
-                <div className="p-12 text-center text-sm text-slate-500">No se encontraron tareas con rango de fechas para mostrar.</div>
+                <div className="p-12 text-center text-sm text-slate-500">No se encontraron tareas con rango de fechas para mostrar con los filtros actuales.</div>
               ) : (
                 <>
                   {tareasActivas.map(tarea => renderFilaGantt(tarea))}
