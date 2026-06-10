@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react'
-import { format, parseISO, differenceInDays, addDays } from 'date-fns'
+import { format, parseISO, differenceInDays, addDays, startOfWeek } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { BarChart2, Filter, Tag, ChevronDown, ChevronRight } from 'lucide-react'
+import { BarChart2, Filter, Tag, ChevronDown, ChevronRight, ChevronLeft, Calendar } from 'lucide-react'
 import { useTask, ESTADO_CONFIG, getEtiquetaColor, ETIQUETAS_OPCIONES, getProjectColor } from '../context/TaskContext'
 
 export default function Gantt() {
@@ -10,6 +10,12 @@ export default function Gantt() {
   const [proyectoFiltrado, setProyectoFiltrado] = useState('Todos')
   const [etiquetaFiltrada, setEtiquetaFiltrada] = useState('Todas') 
   const [mostrarCompletadas, setMostrarCompletadas] = useState(false)
+  
+  // Nuevos estados para controlar la vista y la navegación temporal
+  const [vistaMode, setVistaMode] = useState('mes') // 'semana' | 'mes' | 'tres_meses'
+  const [fechaInicioVista, setFechaInicioVista] = useState(() => 
+    startOfWeek(new Date(), { weekStartsOn: 1 })
+  )
   
   // 1. FILTRADO MULTICRITERIO (Modificado con control estricto de fechas vacías)
   const validTareas = useMemo(() => {
@@ -24,32 +30,41 @@ export default function Gantt() {
     })
   }, [state.tareas, proyectoFiltrado, etiquetaFiltrada])
 
-  // 2. LÍMITES TEMPORALES DEL TIMELINE
+  // 2. LÍMITES TEMPORALES DEL TIMELINE (Adaptados para soportar navegación y tipos de vista)
   const timelineBounds = useMemo(() => {
-    if (validTareas.length === 0) {
-      return { minDate: new Date(), maxDate: addDays(new Date(), 7), totalDays: 7, markers: [] }
+    const min = fechaInicioVista
+    let diasAAnadir = 31 // Vista 'mes' por defecto
+    let numMarkers = 8
+
+    if (vistaMode === 'semana') {
+      diasAAnadir = 7
+      numMarkers = 8
+    } else if (vistaMode === 'tres_meses') {
+      diasAAnadir = 90
+      numMarkers = 8
     }
 
-    const starts = validTareas.map(t => parseISO(t.fechaInicio).getTime())
-    const ends = validTareas.map(t => t.fechaVencimiento ? parseISO(t.fechaVencimiento).getTime() : parseISO(t.fechaInicio).getTime() + 86400000)
-
-    let min = addDays(new Date(Math.min(...starts)), -3)
-    let max = addDays(new Date(Math.max(...ends)), 5)
-    if (max <= min) max = addDays(min, 7)
-
+    const max = addDays(min, diasAAnadir)
     const totalDays = Math.max(1, differenceInDays(max, min))
-    const markers = []
-    const divisiones = Math.min(8, totalDays) 
-    const step = Math.max(1, Math.floor(totalDays / divisiones))
     
-    for (let i = 0; i <= totalDays; i += step) {
-      markers.push(addDays(min, i))
+    // Generar marcadores proporcionales uniformes para mantener la consistencia visual de la cuadrícula
+    const markers = []
+    for (let i = 0; i < numMarkers; i++) {
+      const fraction = i / (numMarkers - 1)
+      const daysOffset = Math.round(fraction * totalDays)
+      markers.push(addDays(min, daysOffset))
     }
 
     return { minDate: min, maxDate: max, totalDays, markers }
-  }, [validTareas])
+  }, [fechaInicioVista, vistaMode])
 
-  const { minDate, totalDays, markers } = timelineBounds
+  const { minDate, maxDate, totalDays, markers } = timelineBounds
+
+  // Función de navegación temporal según la vista activa
+  const navegarTimeline = (direccion) => {
+    const delta = vistaMode === 'semana' ? 7 : vistaMode === 'mes' ? 30 : 90
+    setFechaInicioVista(prev => addDays(prev, direccion * delta))
+  }
 
   const getPercentagePosition = (dateObj) => {
     const diff = differenceInDays(dateObj, minDate)
@@ -90,7 +105,7 @@ export default function Gantt() {
 
     const cfg = ESTADO_CONFIG[tarea.estado] || ESTADO_CONFIG['To Do']
     const tagColor = getEtiquetaColor(tarea.etiqueta)
-    const projColor = getProjectColor(tarea.proyecto) // Sincronizado dinámicamente desde el Context
+    const projColor = getProjectColor(tarea.proyecto)
     
     return (
       <div key={tarea.id} className="grid grid-cols-[480px_1fr] items-center hover:bg-white/[0.02] transition-colors min-h-[56px] py-2 relative z-10 border-b border-white/[0.02]">
@@ -165,6 +180,59 @@ export default function Gantt() {
 
         {/* Panel de Filtros */}
         <div className="flex flex-wrap items-center gap-3">
+          
+          {/* CONTROL DE NAVEGACIÓN TEMPORAL (Clonado exacto de la Imagen) */}
+          <div className="flex items-center gap-1.5 bg-surface-800/90 border border-white/5 p-1 rounded-xl">
+            <button
+              type="button"
+              onClick={() => navegarTimeline(-1)}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors"
+            >
+              <ChevronLeft size={14} strokeWidth={2.5} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setFechaInicioVista(startOfWeek(new Date(), { weekStartsOn: 1 }))}
+              className="px-2.5 py-1 text-xs font-semibold text-slate-200 bg-white/5 hover:bg-white/10 rounded-md transition-colors"
+            >
+              Hoy
+            </button>
+            <button
+              type="button"
+              onClick={() => navegarTimeline(1)}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors"
+            >
+              <ChevronRight size={14} strokeWidth={2.5} />
+            </button>
+            
+            <div className="h-4 w-px bg-white/10 mx-1" />
+            
+            <div className="flex items-center gap-1.5 text-xs font-mono font-medium text-slate-300 pr-2.5 pl-1">
+              <Calendar size={13} className="text-violet-400" />
+              <span className="lowercase">
+                {format(minDate, 'dd MMM', { locale: es }).replace('.', '')} – {format(maxDate, 'dd MMM yyyy', { locale: es }).replace('.', '')}
+              </span>
+            </div>
+          </div>
+
+          {/* Selector de tipo de Vista (Semana, Mes, 3 Meses) */}
+          <div className="flex items-center gap-2 bg-surface-800 border border-white/5 px-3 py-1.5 rounded-xl">
+            <Calendar size={13} className="text-slate-400" />
+            <span className="text-xs font-medium text-slate-400 mr-1">Vista:</span>
+            <select 
+              value={vistaMode} 
+              onChange={(e) => {
+                setVistaMode(e.target.value)
+                setFechaInicioVista(startOfWeek(new Date(), { weekStartsOn: 1 }))
+              }}
+              className="bg-transparent text-xs font-semibold text-slate-200 outline-none cursor-pointer"
+            >
+              <option value="semana" className="bg-surface-700">Semana</option>
+              <option value="mes" className="bg-surface-700">Mes</option>
+              <option value="tres_meses" className="bg-surface-700">3 Meses</option>
+            </select>
+          </div>
+
           <div className="flex items-center gap-2 bg-surface-800 border border-white/5 px-3 py-1.5 rounded-xl">
             <Filter size={13} className="text-slate-400" />
             <span className="text-xs font-medium text-slate-400 mr-1">Proyecto:</span>
@@ -225,8 +293,8 @@ export default function Gantt() {
               <div className="px-5 border-r border-white/5 h-full flex items-center">Tareas Planificadas</div>
               <div className="relative h-full flex justify-between items-center px-4 font-mono text-[10px] text-slate-400">
                 {markers.map((date, i) => (
-                  <span key={i} className="transform -translate-x-1/2 whitespace-nowrap">
-                    {format(date, 'dd MMM', { locale: es })}
+                  <span key={i} className="transform -translate-x-1/2 whitespace-nowrap lowercase">
+                    {format(date, 'dd MMM', { locale: es }).replace('.', '')}
                   </span>
                 ))}
                 {todayPosition !== null && (
