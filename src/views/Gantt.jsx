@@ -1,14 +1,13 @@
 import React, { useState, useMemo } from 'react'
 import { format, parseISO, differenceInDays, addDays } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { BarChart2, Filter, Tag, ChevronDown, ChevronRight } from 'lucide-react'
+import { BarChart2, Filter, Tag, ChevronDown, ChevronRight, Calendar } from 'lucide-react'
 import { useTask, ESTADO_CONFIG, getEtiquetaColor, ETIQUETAS_OPCIONES } from '../context/TaskContext'
 
 // Asignación de colores únicos y fijos por proyecto
 const getProyectoColor = (projectName) => {
   const normalized = projectName?.toUpperCase().trim() || ''
   
-  // Mapeo explícito para tus proyectos actuales
   if (normalized.includes('TES1')) {
     return { text: 'text-cyan-400', border: 'border-cyan-500/30', bg: 'bg-cyan-500/10' }
   }
@@ -16,7 +15,6 @@ const getProyectoColor = (projectName) => {
     return { text: 'text-violet-400', border: 'border-violet-500/30', bg: 'bg-violet-500/10' }
   }
 
-  // Paleta de respaldo por si creas más proyectos (siempre en tonos fríos)
   const fallbackColors = [
     { text: 'text-emerald-400', border: 'border-emerald-500/30', bg: 'bg-emerald-500/10' },
     { text: 'text-blue-400', border: 'border-blue-500/30', bg: 'bg-blue-500/10' },
@@ -39,13 +37,17 @@ export default function Gantt() {
   const [proyectoFiltrado, setProyectoFiltrado] = useState('Todos')
   const [etiquetaFiltrada, setEtiquetaFiltrada] = useState('Todas') 
   const [mostrarCompletadas, setMostrarCompletadas] = useState(false)
+  const [vistaTemporal, setVistaTemporal] = useState('Mes') // Nuevo estado para la vista
   
-  // 1. FILTRADO MULTICRITERIO (Modificado con control estricto de fechas vacías)
+  // 1. FILTRADO MULTICRITERIO (Control estricto de strings de fecha)
   const validTareas = useMemo(() => {
     return state.tareas.filter(t => {
-      // Si no existe fecha de inicio o vencimiento, o están vacías, las omitimos por completo para que no rompan el Gantt
       if (!t.fechaInicio || t.fechaInicio.trim() === "" || !t.fechaVencimiento || t.fechaVencimiento.trim() === "") return false
       
+      const startMs = parseISO(t.fechaInicio).getTime()
+      const endMs = parseISO(t.fechaVencimiento).getTime()
+      if (isNaN(startMs) || isNaN(endMs)) return false
+
       const pasaProyecto = proyectoFiltrado === 'Todos' || t.proyecto === proyectoFiltrado
       const pasaEtiqueta = etiquetaFiltrada === 'Todas' || t.etiqueta === etiquetaFiltrada
       
@@ -53,34 +55,51 @@ export default function Gantt() {
     })
   }, [state.tareas, proyectoFiltrado, etiquetaFiltrada])
 
-  // 2. LÍMITES TEMPORALES DEL TIMELINE
+  // 2. LÍMITES TEMPORALES DEL TIMELINE (Dinámico según la vista seleccionada)
   const timelineBounds = useMemo(() => {
-    if (validTareas.length === 0) {
-      return { minDate: new Date(), maxDate: addDays(new Date(), 7), totalDays: 7, markers: [] }
+    // Configurar días y separación según la vista elegida
+    let days = 30
+    let step = 5
+    
+    if (vistaTemporal === 'Semana') {
+      days = 7
+      step = 1
+    } else if (vistaTemporal === 'Trimestre') {
+      days = 90
+      step = 15
     }
 
-    const starts = validTareas.map(t => parseISO(t.fechaInicio).getTime())
-    const ends = validTareas.map(t => t.fechaVencimiento ? parseISO(t.fechaVencimiento).getTime() : parseISO(t.fechaInicio).getTime() + 86400000)
+    const baseDefecto = addDays(new Date(), -2)
+    const markersDefecto = []
+    for (let i = 0; i <= days; i += step) {
+      markersDefecto.push(addDays(baseDefecto, i))
+    }
 
-    let min = addDays(new Date(Math.min(...starts)), -3)
-    let max = addDays(new Date(Math.max(...ends)), 5)
-    if (max <= min) max = addDays(min, 7)
+    if (!validTareas || validTareas.length === 0) {
+      return { minDate: baseDefecto, maxDate: addDays(baseDefecto, days), totalDays: days, markers: markersDefecto }
+    }
 
-    const totalDays = Math.max(1, differenceInDays(max, min))
+    const starts = validTareas.map(t => parseISO(t.fechaInicio).getTime()).filter(time => !isNaN(time))
+
+    if (starts.length === 0) {
+      return { minDate: baseDefecto, maxDate: addDays(baseDefecto, days), totalDays: days, markers: markersDefecto }
+    }
+
+    let min = addDays(new Date(Math.min(...starts)), -2)
+    let max = addDays(min, days) 
+
     const markers = []
-    const divisiones = Math.min(8, totalDays) 
-    const step = Math.max(1, Math.floor(totalDays / divisiones))
-    
-    for (let i = 0; i <= totalDays; i += step) {
+    for (let i = 0; i <= days; i += step) {
       markers.push(addDays(min, i))
     }
 
-    return { minDate: min, maxDate: max, totalDays, markers }
-  }, [validTareas])
+    return { minDate: min, maxDate: max, totalDays: days, markers }
+  }, [validTareas, vistaTemporal])
 
   const { minDate, totalDays, markers } = timelineBounds
 
   const getPercentagePosition = (dateObj) => {
+    if (!totalDays || totalDays <= 0) return 0
     const diff = differenceInDays(dateObj, minDate)
     return Math.min(100, Math.max(0, (diff / totalDays) * 100))
   }
@@ -94,7 +113,6 @@ export default function Gantt() {
     return null
   }, [minDate, totalDays])
 
-  // Separar y ordenar tareas activas y completadas
   const tareasActivas = useMemo(() => {
     return [...validTareas]
       .filter(t => t.estado !== 'Done')
@@ -107,7 +125,6 @@ export default function Gantt() {
       .sort((a, b) => parseISO(a.fechaInicio).getTime() - parseISO(b.fechaInicio).getTime())
   }, [validTareas])
 
-  // Función interna reutilizable para renderizar cada fila exactamente como estaba antes
   const renderFilaGantt = (tarea) => {
     const start = parseISO(tarea.fechaInicio)
     let end = tarea.fechaVencimiento ? parseISO(tarea.fechaVencimiento) : addDays(start, 1)
@@ -125,28 +142,21 @@ export default function Gantt() {
       <div key={tarea.id} className="grid grid-cols-[480px_1fr] items-center hover:bg-white/[0.02] transition-colors min-h-[56px] py-2 relative z-10 border-b border-white/[0.02]">
         <div className="px-5 pr-4 flex items-center justify-between gap-4 border-r border-white/5 h-full">
           <div className="flex items-center gap-4 flex-1 min-w-0">
-            
-            {/* Identificador de Proyecto Único */}
             <span 
               className={`text-[9px] font-bold px-2 py-0.5 rounded border uppercase text-center w-24 shrink-0 truncate tracking-wider ${projColor.bg} ${projColor.border} ${projColor.text}`} 
               title={tarea.proyecto}
             >
               {tarea.proyecto}
             </span>
-
-            {/* Descripción de la tarea */}
             <span className={`text-sm font-medium pr-2 break-words flex-1 leading-relaxed ${tarea.estado === 'Done' ? 'line-through text-slate-500 opacity-60' : 'text-slate-300'}`}>
               {tarea.titulo}
             </span>
           </div>
-          
-          {/* Estado */}
           <span className={`text-[10px] font-medium rounded-full px-2 py-0.5 border shrink-0 uppercase tracking-wider ${cfg.bg} ${cfg.color} ${cfg.border}`}>
             {tarea.estado === 'In Progress' ? 'Progreso' : tarea.estado}
           </span>
         </div>
 
-        {/* Barra de Tiempo en el Timeline */}
         <div className="relative h-full w-full flex items-center px-4">
           <div 
             className="absolute h-6 rounded-lg flex items-center px-2 shadow-md border cursor-default overflow-hidden transition-all duration-150"
@@ -179,8 +189,6 @@ export default function Gantt() {
 
   return (
     <div className="p-8 animate-fade-in bg-[#0b0f19] min-h-screen text-slate-100">
-      
-      {/* Header Superior con Filtros */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
@@ -192,8 +200,22 @@ export default function Gantt() {
           </div>
         </div>
 
-        {/* Panel de Filtros */}
         <div className="flex flex-wrap items-center gap-3">
+          {/* Selector de Vista Temporal (Nuevo) */}
+          <div className="flex items-center gap-2 bg-surface-800 border border-white/5 px-3 py-1.5 rounded-xl">
+            <Calendar size={13} className="text-slate-400" />
+            <span className="text-xs font-medium text-slate-400 mr-1">Vista:</span>
+            <select 
+              value={vistaTemporal} 
+              onChange={(e) => setVistaTemporal(e.target.value)}
+              className="bg-transparent text-xs font-semibold text-slate-200 outline-none cursor-pointer"
+            >
+              <option value="Semana" className="bg-surface-700">Semana</option>
+              <option value="Mes" className="bg-surface-700">Mes</option>
+              <option value="Trimestre" className="bg-surface-700">Trimestre</option>
+            </select>
+          </div>
+
           <div className="flex items-center gap-2 bg-surface-800 border border-white/5 px-3 py-1.5 rounded-xl">
             <Filter size={13} className="text-slate-400" />
             <span className="text-xs font-medium text-slate-400 mr-1">Proyecto:</span>
@@ -222,7 +244,6 @@ export default function Gantt() {
         </div>
       </div>
 
-      {/* LEYENDA INFORMATIVA */}
       <div className="flex flex-wrap gap-4 mb-6 bg-surface-800/40 border border-white/5 p-3 rounded-xl text-xs">
         <span className="text-slate-500 font-medium flex items-center gap-1">Colores por etiqueta:</span>
         {ETIQUETAS_OPCIONES.map(tag => {
@@ -236,12 +257,9 @@ export default function Gantt() {
         })}
       </div>
 
-      {/* TIMELINE GANTT */}
       <div className="border border-white/5 rounded-2xl bg-surface-700/30 overflow-hidden shadow-2xl">
         <div className="overflow-x-auto">
           <div className="min-w-[1100px] relative">
-            
-            {/* Rejilla de Fondo */}
             <div className="absolute inset-0 left-[480px] pointer-events-none flex justify-between z-0">
               {markers.map((_, idx) => <div key={idx} className="w-px h-full border-l border-white/[0.03]" />)}
               {todayPosition !== null && (
@@ -249,7 +267,6 @@ export default function Gantt() {
               )}
             </div>
 
-            {/* Cabecera fechas */}
             <div className="grid grid-cols-[480px_1fr] bg-surface-800/90 border-b border-white/10 items-center text-xs font-medium uppercase tracking-wider text-slate-500 h-12 z-10 relative">
               <div className="px-5 border-r border-white/5 h-full flex items-center">Tareas Planificadas</div>
               <div className="relative h-full flex justify-between items-center px-4 font-mono text-[10px] text-slate-400">
@@ -266,16 +283,13 @@ export default function Gantt() {
               </div>
             </div>
 
-            {/* Renderizado de Datos */}
             <div className="divide-y divide-white/[0.04]">
               {validTareas.length === 0 ? (
-                <div className="p-12 text-center text-sm text-slate-500">No se encontraron tareas con rango de fechas para mostrar.</div>
+                <div className="p-12 text-center text-sm text-slate-500">No se encontraron tareas con rango de fechas para mostrar con los filtros actuales.</div>
               ) : (
                 <>
-                  {/* Bloque 1: Tareas Activas/Pendientes */}
                   {tareasActivas.map(tarea => renderFilaGantt(tarea))}
 
-                  {/* Bloque 2: Desplegable de Tareas Completadas */}
                   {tareasCompletadas.length > 0 && (
                     <div className="bg-[#0e1424]/40">
                       <div className="grid grid-cols-[480px_1fr] items-center min-h-[44px] border-b border-white/[0.04]">
@@ -302,7 +316,6 @@ export default function Gantt() {
                 </>
               )}
             </div>
-
           </div>
         </div>
       </div>
