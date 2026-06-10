@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { X, FileText, Calendar, Tag, Briefcase } from 'lucide-react'
-import { useTask, ESTADOS } from '../context/TaskContext'
+import { X, FileText, Calendar, Tag, Briefcase, Link2 } from 'lucide-react'
+import { useTask, ESTADOS, ETIQUETAS_OPCIONES } from '../context/TaskContext'
 
 export default function TaskModal({ editTask, initialProyecto, onClose, onSave }) {
   const { state, dispatch } = useTask()
@@ -11,8 +11,9 @@ export default function TaskModal({ editTask, initialProyecto, onClose, onSave }
   const [estado, setEstado] = useState('To Do')
   const [fechaInicio, setFechaInicio] = useState('')
   const [fechaVencimiento, setFechaVencimiento] = useState('')
-  const [etiqueta, setEtiqueta] = useState('')
+  const [etiqueta, setEtiqueta] = useState('Laura') // Valor inicial por defecto de tus opciones
   const [notas, setNotas] = useState('')
+  const [linkDocumento, setLinkDocumento] = useState('') // Nuevo campo para el enlace
   const [sincronizarHistoria, setSincronizarHistoria] = useState(false)
 
   useEffect(() => {
@@ -26,8 +27,9 @@ export default function TaskModal({ editTask, initialProyecto, onClose, onSave }
       setEstado(editTask.estado || 'To Do')
       setFechaInicio(editTask.fechaInicio || '')
       setFechaVencimiento(editTask.fechaVencimiento || '')
-      setEtiqueta(editTask.etiqueta || '')
+      setEtiqueta(editTask.etiqueta || 'Laura')
       setNotas(editTask.notas || '')
+      setLinkDocumento(editTask.linkDocumento || '')
       setSincronizarHistoria(!!editTask.historia)
     }
   }, [editTask, initialProyecto, state.proyectos])
@@ -42,8 +44,9 @@ export default function TaskModal({ editTask, initialProyecto, onClose, onSave }
       estado,
       fechaInicio: fechaInicio || null, 
       fechaVencimiento: fechaVencimiento || null,
-      etiqueta: etiqueta.trim(),
+      etiqueta,
       notas: notas.trim(),
+      linkDocumento: linkDocumento.trim() || null, // Guardamos el enlace de forma segura
       historia: sincronizarHistoria ? notas.trim() : null
     }
 
@@ -97,6 +100,20 @@ export default function TaskModal({ editTask, initialProyecto, onClose, onSave }
             />
           </div>
 
+          {/* 1. Cambio: Estado del formulario siempre visible debajo del título */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">Estado de la Tarea</label>
+            <select
+              value={estado}
+              onChange={(e) => setEstado(e.target.value)}
+              className="w-full bg-surface-700 border border-white/5 rounded-xl px-3 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-accent-violet/50 cursor-pointer"
+            >
+              {ESTADOS.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
+
           {/* Fila: Proyecto y Responsable */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
@@ -112,16 +129,33 @@ export default function TaskModal({ editTask, initialProyecto, onClose, onSave }
               </select>
             </div>
 
+            {/* 2. Cambio: Responsable convertido a desplegable usando ETIQUETAS_OPCIONES */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1"><Tag size={12} /> Responsable / Etiqueta</label>
-              <input
-                type="text"
-                placeholder="Ej: Juan Pérez"
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1"><Tag size={12} /> Responsable</label>
+              <select
                 value={etiqueta}
                 onChange={(e) => setEtiqueta(e.target.value)}
-                className="w-full bg-surface-700 border border-white/5 rounded-xl px-4 py-2.5 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-accent-violet/50"
-              />
+                className="w-full bg-surface-700 border border-white/5 rounded-xl px-3 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-accent-violet/50 cursor-pointer"
+              >
+                {ETIQUETAS_OPCIONES.map((opt) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
             </div>
+          </div>
+
+          {/* 3. Cambio: Campo para pegar un enlace (Documento/OneDrive/SharePoint) */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1">
+              <Link2 size={12} /> Enlace del Documentación / Adjunto
+            </label>
+            <input
+              type="url"
+              placeholder="Ej: https://onedrive.live.com/..."
+              value={linkDocumento}
+              onChange={(e) => setLinkDocumento(e.target.value)}
+              className="w-full bg-surface-700 border border-white/5 rounded-xl px-4 py-2.5 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-accent-violet/50"
+            />
           </div>
 
           {/* Caja de Historia de Usuario / Requerimiento */}
@@ -177,22 +211,6 @@ export default function TaskModal({ editTask, initialProyecto, onClose, onSave }
               />
             </div>
           </div>
-
-          {/* Selector de Estado (Solo si se está editando) */}
-          {editTask && (
-            <div className="space-y-1.5 pt-1">
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">Estado Actual</label>
-              <select
-                value={estado}
-                onChange={(e) => setEstado(e.target.value)}
-                className="w-full bg-surface-700 border border-white/5 rounded-xl px-3 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-accent-violet/50 cursor-pointer"
-              >
-                {ESTADOS.map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </div>
-          )}
 
           {/* Botones de acción */}
           <div className="flex justify-end gap-2 pt-4 border-t border-white/5">
