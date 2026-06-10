@@ -159,7 +159,7 @@ export default function Gantt() {
               </div>
             </div>
 
-            {/* Renderizado de Datos (Flujo Plano) */}
+            {/* Renderizado de Datos (Flujo Plano Alineado) */}
             <div className="divide-y divide-white/[0.04]">
               {sortedTareas.length === 0 ? (
                 <div className="p-12 text-center text-sm text-slate-500">No se encontraron tareas coincidentes con los filtros actuales.</div>
@@ -179,22 +179,25 @@ export default function Gantt() {
                   return (
                     <div key={tarea.id} className="grid grid-cols-[360px_1fr] items-center hover:bg-white/[0.02] transition-colors h-12 relative z-10 border-b border-white/[0.02]">
                       <div className="px-5 pr-4 flex items-center justify-between gap-3 border-r border-white/5 h-full truncate">
-                        <div className="flex items-center gap-2 truncate">
+                        <div className="flex items-center gap-3 truncate flex-1">
                           
-                          {/* Identificador de Proyecto */}
+                          {/* 1. Identificador de Proyecto (Ancho fijo e inamovible) */}
                           <span 
-                            className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-slate-400 uppercase tracking-wider truncate max-w-[80px]" 
+                            className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-slate-400 uppercase tracking-wider text-center truncate w-24 shrink-0" 
                             title={tarea.proyecto}
                           >
                             {tarea.proyecto}
                           </span>
 
-                          {/* Identificador de Etiqueta */}
-                          <span className={`text-xs font-semibold px-1.5 py-0.5 rounded border uppercase text-[9px]`} style={{ backgroundColor: `${tagColor.accent}20`, borderColor: tagColor.accent, color: tagColor.accent }}>
+                          {/* 2. Identificador de Etiqueta (Ancho fijo e inamovible) */}
+                          <span 
+                            className="text-[9px] font-semibold py-0.5 rounded border uppercase text-center w-7 shrink-0" 
+                            style={{ backgroundColor: `${tagColor.accent}20`, borderColor: tagColor.accent, color: tagColor.accent }}
+                          >
                             {tarea.etiqueta ? tarea.etiqueta.substring(0,2) : '—'}
                           </span>
 
-                          {/* Título de la tarea */}
+                          {/* 3. Título de la tarea (Se adapta al espacio restante perfectamente alineado) */}
                           <span className={`text-sm font-medium truncate ${tarea.estado === 'Done' ? 'line-through text-slate-500 opacity-60' : 'text-slate-300'}`}>
                             {tarea.titulo}
                           </span>
