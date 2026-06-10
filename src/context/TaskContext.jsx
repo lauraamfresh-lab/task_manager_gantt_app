@@ -62,6 +62,14 @@ function reducer(state, action) {
   switch (action.type) {
     case 'ADD_PROJECT':
       return { ...state, proyectos: [...state.proyectos, action.payload] }
+    case 'DELETE_PROJECT':
+      return { 
+        ...state, 
+        proyectos: state.proyectos.filter(p => p !== action.payload),
+        tareas: state.tareas.filter(t => t.proyecto !== action.payload),
+        bugs: (state.bugs || []).filter(b => b.proyecto !== action.payload),
+        historias: (state.historias || []).filter(h => h.proyecto !== action.payload)
+      }
     case 'ADD_TASK':
       return { ...state, tareas: [...state.tareas, { ...action.payload, id: Date.now().toString() }] }
     case 'UPDATE_TASK':

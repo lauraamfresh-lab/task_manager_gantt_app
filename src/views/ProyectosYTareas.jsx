@@ -228,12 +228,20 @@ function TareaRow({ tarea, i, tareasLength, onEdit }) {
 }
 
 function ProyectoGroup({ proyecto, tareas, onAdd, onEdit }) {
+  const { dispatch } = useTask()
   const col = getProjectColor(proyecto)
   const [isCollapsed, setIsCollapsed] = useState(true)
   const [showCompleted, setShowCompleted] = useState(false)
 
   const tareasActivas = tareas.filter(t => t.estado !== 'Done')
   const tareasCompletadas = tareas.filter(t => t.estado === 'Done')
+
+  const handleDeleteProject = (e) => {
+    e.stopPropagation()
+    if (window.confirm(`¿Seguro que deseas eliminar el proyecto "${proyecto}"?\n\n⚠️ ADVERTENCIA: Se borrarán permanentemente todas sus tareas, historias y bugs asociados.`)) {
+      dispatch({ type: 'DELETE_PROJECT', payload: proyecto })
+    }
+  }
 
   return (
     <div className="mb-6 bg-surface-700/30 border border-white/5 rounded-2xl overflow-hidden shadow-xl">
@@ -251,12 +259,23 @@ function ProyectoGroup({ proyecto, tareas, onAdd, onEdit }) {
             {tareasActivas.length} activas {tareasCompletadas.length > 0 && `· ${tareasCompletadas.length} hechas`}
           </span>
         </div>
-        <button 
-          onClick={(e) => { e.stopPropagation(); onAdd(proyecto); }} 
-          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-surface-600 transition-colors"
-        >
-          <Plus size={16} strokeWidth={2.5} />
-        </button>
+        
+        <div className="flex items-center gap-1">
+          <button 
+            onClick={(e) => { e.stopPropagation(); onAdd(proyecto); }} 
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-surface-600 transition-colors"
+            title="Añadir tarea"
+          >
+            <Plus size={16} strokeWidth={2.5} />
+          </button>
+          <button 
+            onClick={handleDeleteProject} 
+            className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+            title="Eliminar proyecto"
+          >
+            <Trash2 size={16} strokeWidth={2.5} />
+          </button>
+        </div>
       </div>
 
       {!isCollapsed && (
@@ -322,7 +341,6 @@ export default function ProyectosYTareas() {
   state.proyectos.forEach(p => { grouped[p] = [] })
   state.tareas.forEach(t => { if (grouped[t.proyecto]) grouped[t.proyecto].push(t) })
 
-  // Manejador centralizado para capturar cuando se crea una tarea desde TaskModal y sincronizarla con Historias
   const interceptarNuevaTarea = (nuevaTarea) => {
     if (nuevaTarea.historia && nuevaTarea.historia.trim() !== '') {
       dispatch({
