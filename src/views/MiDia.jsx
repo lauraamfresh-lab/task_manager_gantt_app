@@ -1,89 +1,41 @@
 import React from 'react'
 import { useTask } from '../context/TaskContext'
-import { Sun, AlertCircle } from 'lucide-react'
-import TaskCard from './TaskCard'
+// Importa aquí los mismos componentes o iconos que ya uses (ej: TaskCard, Sun, etc.)
 
-export default function MyDay() {
+export default function MyDayView() {
   const { state } = useTask()
+  
+  // Obtener la fecha de hoy en formato idéntico al del input date (YYYY-MM-DD)
+  const hoyStr = new Date().toISOString().split('T')[0]
 
-  // OBTENER FECHA LOCAL DE FORMA SEGURA (Evita desfases de huso horario UTC de toISOString)
-  const d = new Date()
-  const hoyStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-
-  // FILTRADO ADAPTADO: Añade automáticamente las tareas vencidas locales que no estén completadas
-  const miDiaTareas = state.tareas.filter(t => {
+  // FILTRADO: Tareas marcadas manualmente + Tareas vencidas no completadas
+  const tareasMiDia = state.tareas.filter(t => {
     const esMarcadaMiDia = t.enMiDia
     const estaVencida = t.fechaVencimiento && t.fechaVencimiento < hoyStr && t.estado !== 'Done'
     
     return esMarcadaMiDia || estaVencida
   })
 
-  const completadas = miDiaTareas.filter(t => t.estado === 'Done').length
-  const total = miDiaTareas.length
-  const progreso = total > 0 ? Math.round((completadas / total) * 100) : 0
-
-  const fechaActual = new Date().toLocaleDateString('es-ES', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long'
-  })
-
   return (
     <div className="p-8 animate-fade-in bg-[#0b0f19] min-h-screen text-slate-100">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
-            <Sun className="text-amber-400" size={20} />
-          </div>
-          <div>
-            <h1 className="text-2xl font-display font-bold text-slate-100">Mi Día</h1>
-            <p className="text-sm text-slate-500 capitalize mt-0.5">{fechaActual}</p>
-          </div>
-        </div>
-
-        {total > 0 && (
-          <div className="bg-surface-800 border border-white/5 px-4 py-3 rounded-2xl flex items-center gap-4 min-w-[240px]">
-            <div className="flex-1">
-              <div className="flex justify-between text-xs mb-1.5">
-                <span className="text-slate-400 font-medium">Progreso diario</span>
-                <span className="text-accent-violet font-bold font-mono">{progreso}%</span>
-              </div>
-              <div className="w-full bg-surface-700 h-1.5 rounded-full overflow-hidden">
-                <div 
-                  className="bg-accent-violet h-full transition-all duration-500 ease-out"
-                  style={{ width: `${progreso}%` }}
-                />
-              </div>
-            </div>
-            <div className="text-right shrink-0">
-              <span className="text-lg font-bold text-slate-200 font-mono">{completadas}</span>
-              <span className="text-xs text-slate-500 font-medium">/{total}</span>
-            </div>
-          </div>
-        )}
+      {/* Tu cabecera existente (No cambies nada de tus estilos) */}
+      <div className="flex items-center gap-3 mb-6">
+        <h1 className="text-2xl font-display font-bold text-slate-100">Mi Día</h1>
       </div>
 
-      <div className="space-y-3 max-w-4xl">
-        {miDiaTareas.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center border border-dashed border-white/5 rounded-2xl bg-surface-800/20 px-4">
-            <div className="w-12 h-12 rounded-full bg-surface-800 flex items-center justify-center mb-3 border border-white/5">
-              <Sun size={20} className="text-slate-600" />
-            </div>
-            <h3 className="text-sm font-semibold text-slate-400">Tu día está despejado</h3>
-            <p className="text-xs text-slate-600 max-w-[280px] mt-1 leading-relaxed">
-              Las tareas que agregues a "Mi Día" o que se encuentren vencidas aparecerán aquí para ayudarte a enfocar tu jornada.
-            </p>
-          </div>
+      {/* Renderizado de las tareas */}
+      <div className="space-y-3">
+        {tareasMiDia.length === 0 ? (
+          <p className="text-sm text-slate-500 italic">No hay tareas para hoy ni tareas vencidas pendientes.</p>
         ) : (
-          miDiaTareas.map(tarea => (
-            <div key={tarea.id} className="relative group">
-              <TaskCard tarea={tarea} />
-              
-              {tarea.fechaVencimiento && tarea.fechaVencimiento < hoyStr && tarea.estado !== 'Done' && (
-                <div className="absolute top-3.5 right-14 flex items-center gap-1 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[10px] font-bold px-2 py-0.5 rounded-md pointer-events-none">
-                  <AlertCircle size={10} />
-                  <span>Vencida</span>
-                </div>
+          tareasMiDia.map(tarea => (
+            // Aquí dejas tu `<TaskCard />` o el componente que uses para pintar la tarea tal y como lo tenías
+            <div key={tarea.id} className="p-4 bg-surface-800 rounded-xl border border-white/5">
+              <span className="text-sm font-medium">{tarea.titulo}</span>
+              {tarea.fechaVencimiento && tarea.fechaVencimiento < hoyStr && (
+                <span className="text-[10px] ml-2 px-2 py-0.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-md font-semibold">
+                  Vencida
+                </span>
               )}
             </div>
           ))
