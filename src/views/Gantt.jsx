@@ -1,25 +1,15 @@
 import React, { useState, useMemo } from 'react'
 import { format, parseISO, differenceInDays, addDays } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { BarChart2, ChevronDown, ChevronRight, Filter, Tag } from 'lucide-react'
+import { BarChart2, Filter, Tag } from 'lucide-react'
 import { useTask, ESTADO_CONFIG, getEtiquetaColor, ETIQUETAS_OPCIONES } from '../context/TaskContext'
 
 export default function Gantt() {
   const { state } = useTask()
   
   const [proyectoFiltrado, setProyectoFiltrado] = useState('Todos')
-  const [etiquetaFiltrada, setEtiquetaFiltrada] = useState('Todas') // ◄ Estado de filtrado por etiqueta
+  const [etiquetaFiltrada, setEtiquetaFiltrada] = useState('Todas') 
   
-  const [collapsedProjects, setCollapsedProjects] = useState(() => {
-    const initialCollapsed = {}
-    state.proyectos.forEach(p => { initialCollapsed[p] = true })
-    return initialCollapsed
-  })
-
-  const toggleProyecto = (projName) => {
-    setCollapsedProjects(prev => ({ ...prev, [projName]: !prev[projName] }))
-  }
-
   // 1. FILTRADO MULTICRITERIO (Proyecto + Etiqueta)
   const validTareas = useMemo(() => {
     return state.tareas.filter(t => {
@@ -73,30 +63,10 @@ export default function Gantt() {
     return null
   }, [minDate, totalDays])
 
-  // 3. AGRUPACIÓN POR PROYECTOS ACTIVO (Con ordenamiento macro de proyectos por carga de trabajo)
-  const groupedProjects = useMemo(() => {
-    const groups = {}
-    state.proyectos.forEach(p => {
-      if (proyectoFiltrado === 'Todos' || p === proyectoFiltrado) groups[p] = []
-    })
-
-    validTareas.forEach(t => {
-      if (groups[t.proyecto]) groups[t.proyecto].push(t)
-    })
-
-    Object.keys(groups).forEach(key => {
-      groups[key].sort((a, b) => parseISO(a.fechaInicio).getTime() - parseISO(b.fechaInicio).getTime())
-    })
-
-    // Se filtran los vacíos y se ordenan los proyectos según la fecha de su primera tarea
-    return Object.entries(groups)
-      .filter(([_, tasks]) => tasks.length > 0)
-      .sort((a, b) => {
-        const primerInicioA = parseISO(a[1][0].fechaInicio).getTime()
-        const primerInicioB = parseISO(b[1][0].fechaInicio).getTime()
-        return primerInicioA - primerInicioB
-      })
-  }, [validTareas, state.proyectos, proyectoFiltrado])
+  // 3. LISTA PLANA DE TAREAS ORDENADAS POR FECHA DE INICIO
+  const sortedTareas = useMemo(() => {
+    return [...validTareas].sort((a, b) => parseISO(a.fechaInicio).getTime() - parseISO(b.fechaInicio).getTime())
+  }, [validTareas])
 
   return (
     <div className="p-8 animate-fade-in bg-[#0b0f19] min-h-screen text-slate-100">
@@ -109,7 +79,7 @@ export default function Gantt() {
           </div>
           <div>
             <h1 className="text-2xl font-display font-bold text-slate-100">Diagrama de Gantt</h1>
-            <p className="text-sm text-slate-500 mt-0.5">Seguimiento visual diferenciado por colores de etiquetas</p>
+            <p className="text-sm text-slate-500 mt-0.5">Seguimiento visual de tareas ordenadas por inicio</p>
           </div>
         </div>
 
@@ -129,7 +99,7 @@ export default function Gantt() {
             </select>
           </div>
 
-          {/* Filtro Etiqueta (Laura / Lola) */}
+          {/* Filtro Etiqueta */}
           <div className="flex items-center gap-2 bg-surface-800 border border-white/5 px-3 py-1.5 rounded-xl">
             <Tag size={13} className="text-slate-400" />
             <span className="text-xs font-medium text-slate-400 mr-1">Etiqueta:</span>
@@ -174,7 +144,7 @@ export default function Gantt() {
 
             {/* Cabecera fechas */}
             <div className="grid grid-cols-[360px_1fr] bg-surface-800/90 border-b border-white/10 items-center text-xs font-medium uppercase tracking-wider text-slate-500 h-12 z-10 relative">
-              <div className="px-5 border-r border-white/5 h-full flex items-center">Tareas / Estructura</div>
+              <div className="px-5 border-r border-white/5 h-full flex items-center">Tareas Planificadas</div>
               <div className="relative h-full flex justify-between items-center px-4 font-mono text-[10px] text-slate-400">
                 {markers.map((date, i) => (
                   <span key={i} className="transform -translate-x-1/2 whitespace-nowrap">
@@ -189,107 +159,79 @@ export default function Gantt() {
               </div>
             </div>
 
-            {/* Renderizado de Datos */}
+            {/* Renderizado de Datos (Flujo Plano) */}
             <div className="divide-y divide-white/[0.04]">
-              {groupedProjects.length === 0 ? (
+              {sortedTareas.length === 0 ? (
                 <div className="p-12 text-center text-sm text-slate-500">No se encontraron tareas coincidentes con los filtros actuales.</div>
               ) : (
-                groupedProjects.map(([projectName, tasks]) => {
-                  const isCollapsed = collapsedProjects[projectName] !== false
-                  const completedCount = tasks.filter(t => t.estado === 'Done').length
+                sortedTareas.map(tarea => {
+                  const start = parseISO(tarea.fechaInicio)
+                  let end = tarea.fechaVencimiento ? parseISO(tarea.fechaVencimiento) : addDays(start, 1)
+                  if (end <= start) end = addDays(start, 1)
 
-                  const startTimes = tasks.map(t => parseISO(t.fechaInicio).getTime())
-                  const endTimes = tasks.map(t => t.fechaVencimiento ? parseISO(t.fechaVencimiento).getTime() : parseISO(t.fechaInicio).getTime() + 86400000)
+                  const barLeft = getPercentagePosition(start)
+                  const barRight = getPercentagePosition(end)
+                  const barWidth = Math.max(1.5, barRight - barLeft)
+
+                  const cfg = ESTADO_CONFIG[tarea.estado] || ESTADO_CONFIG['To Do']
+                  const tagColor = getEtiquetaColor(tarea.etiqueta)
                   
-                  const projMinDate = new Date(Math.min(...startTimes))
-                  const projMaxDate = new Date(Math.max(...endTimes))
-
-                  const projLeft = getPercentagePosition(projMinDate)
-                  const projRight = getPercentagePosition(projMaxDate)
-                  const projWidth = Math.max(1.5, projRight - projLeft)
-
                   return (
-                    <div key={projectName} className="contents">
-                      
-                      {/* FILA DEL PROYECTO */}
-                      <div onClick={() => toggleProyecto(projectName)} className="grid grid-cols-[360px_1fr] items-center bg-surface-800/30 hover:bg-surface-800/50 transition-colors h-11 relative z-10 cursor-pointer select-none">
-                        <div className="px-4 flex items-center gap-2 border-r border-white/5 h-full">
-                          <div className="text-slate-400 p-0.5">{isCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}</div>
-                          <span className="font-display font-semibold text-sm text-slate-200 truncate max-w-[240px]">{projectName}</span>
-                          <span className="text-[10px] font-mono text-slate-500 bg-white/5 px-1.5 py-0.5 rounded ml-1">{completedCount}/{tasks.length}</span>
-                        </div>
+                    <div key={tarea.id} className="grid grid-cols-[360px_1fr] items-center hover:bg-white/[0.02] transition-colors h-12 relative z-10 border-b border-white/[0.02]">
+                      <div className="px-5 pr-4 flex items-center justify-between gap-3 border-r border-white/5 h-full truncate">
+                        <div className="flex items-center gap-2 truncate">
+                          
+                          {/* Identificador de Proyecto */}
+                          <span 
+                            className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-slate-400 uppercase tracking-wider truncate max-w-[80px]" 
+                            title={tarea.proyecto}
+                          >
+                            {tarea.proyecto}
+                          </span>
 
-                        <div className="relative h-full w-full flex items-center px-4 bg-transparent">
-                          {isCollapsed && (
-                            <div 
-                              className="absolute h-2 rounded bg-slate-600/40 border border-slate-500/20 shadow-sm"
-                              style={{ left: `${projLeft}%`, width: `${projWidth}%` }}
-                            />
+                          {/* Identificador de Etiqueta */}
+                          <span className={`text-xs font-semibold px-1.5 py-0.5 rounded border uppercase text-[9px]`} style={{ backgroundColor: `${tagColor.accent}20`, borderColor: tagColor.accent, color: tagColor.accent }}>
+                            {tarea.etiqueta ? tarea.etiqueta.substring(0,2) : '—'}
+                          </span>
+
+                          {/* Título de la tarea */}
+                          <span className={`text-sm font-medium truncate ${tarea.estado === 'Done' ? 'line-through text-slate-500 opacity-60' : 'text-slate-300'}`}>
+                            {tarea.titulo}
+                          </span>
+                        </div>
+                        
+                        <span className={`text-[10px] font-medium rounded-full px-2 py-0.5 border shrink-0 uppercase tracking-wider ${cfg.bg} ${cfg.color} ${cfg.border}`}>
+                          {tarea.estado === 'In Progress' ? 'Progreso' : tarea.estado}
+                        </span>
+                      </div>
+
+                      {/* Barra de Tiempo en el Timeline */}
+                      <div className="relative h-full w-full flex items-center px-4">
+                        <div 
+                          className="absolute h-6 rounded-lg flex items-center px-2 shadow-md border cursor-default overflow-hidden transition-all duration-150"
+                          style={{ 
+                            left: `${barLeft}%`, 
+                            width: `${barWidth}%`,
+                            backgroundColor: `${tagColor.accent}20`, 
+                            borderColor: `${tagColor.accent}60`,
+                            borderWidth: '1px'
+                          }}
+                          title={`${tarea.titulo} [Proyecto: ${tarea.proyecto}] [Etiqueta: ${tarea.etiqueta || 'Ninguna'}]`}
+                        >
+                          <div 
+                            className="absolute left-0 top-0 bottom-0 opacity-40"
+                            style={{ 
+                              width: tarea.estado === 'Done' ? '100%' : tarea.estado === 'In Progress' ? '50%' : '0%',
+                              backgroundColor: tagColor.accent
+                            }}
+                          />
+                          {barWidth > 12 && (
+                            <span className="text-[10px] font-semibold text-white/95 truncate z-10 font-mono">
+                              {tarea.etiqueta || 'Sin etiqueta'}
+                            </span>
                           )}
                         </div>
                       </div>
-
-                      {/* FILAS DE LAS TAREAS */}
-                      {!isCollapsed && tasks.map(tarea => {
-                        const start = parseISO(tarea.fechaInicio)
-                        let end = tarea.fechaVencimiento ? parseISO(tarea.fechaVencimiento) : addDays(start, 1)
-                        if (end <= start) end = addDays(start, 1)
-
-                        const barLeft = getPercentagePosition(start)
-                        const barRight = getPercentagePosition(end)
-                        const barWidth = Math.max(1.5, barRight - barLeft)
-
-                        const cfg = ESTADO_CONFIG[tarea.estado] || ESTADO_CONFIG['To Do']
-                        
-                        // OBTENCIÓN CROMÁTICA EN BASE A LA ETIQUETA ASIGNADA
-                        const tagColor = getEtiquetaColor(tarea.etiqueta)
-                        
-                        return (
-                          <div key={tarea.id} className="grid grid-cols-[360px_1fr] items-center hover:bg-white/[0.02] transition-colors h-12 relative z-10 border-b border-white/[0.02]">
-                            <div className="pl-10 pr-4 flex items-center justify-between gap-3 border-r border-white/5 h-full truncate">
-                              <div className="flex items-center gap-2 truncate">
-                                <span className={`text-xs font-semibold px-1.5 py-0.5 rounded border uppercase text-[9px]`} style={{ backgroundColor: `${tagColor.accent}20`, borderColor: tagColor.accent, color: tagColor.accent }}>
-                                  {tarea.etiqueta ? tarea.etiqueta.substring(0,2) : '—'}
-                                </span>
-                                <span className={`text-sm font-medium truncate ${tarea.estado === 'Done' ? 'line-through text-slate-500 opacity-60' : 'text-slate-300'}`}>
-                                  {tarea.titulo}
-                                </span>
-                              </div>
-                              <span className={`text-[10px] font-medium rounded-full px-2 py-0.5 border shrink-0 uppercase tracking-wider ${cfg.bg} ${cfg.color} ${cfg.border}`}>
-                                {tarea.estado === 'In Progress' ? 'Progreso' : tarea.estado}
-                              </span>
-                            </div>
-
-                            <div className="relative h-full w-full flex items-center px-4">
-                              <div 
-                                className="absolute h-6 rounded-lg flex items-center px-2 shadow-md border cursor-default overflow-hidden transition-all duration-150"
-                                style={{ 
-                                  left: `${barLeft}%`, 
-                                  width: `${barWidth}%`,
-                                  backgroundColor: `${tagColor.accent}20`, 
-                                  borderColor: `${tagColor.accent}60`,
-                                  borderWidth: '1px'
-                                }}
-                                title={`${tarea.titulo} [Etiqueta: ${tarea.etiqueta || 'Ninguna'}]`}
-                              >
-                                <div 
-                                  className="absolute left-0 top-0 bottom-0 opacity-40"
-                                  style={{ 
-                                    width: tarea.estado === 'Done' ? '100%' : tarea.estado === 'In Progress' ? '50%' : '0%',
-                                    backgroundColor: tagColor.accent
-                                  }}
-                                />
-                                {barWidth > 12 && (
-                                  <span className="text-[10px] font-semibold text-white/95 truncate z-10 font-mono">
-                                    {tarea.etiqueta || 'Sin etiqueta'}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        )
-                      })}
-
                     </div>
                   )
                 })
