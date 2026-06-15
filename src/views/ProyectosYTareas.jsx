@@ -233,8 +233,47 @@ function ProyectoGroup({ proyecto, tareas, onAdd, onEdit }) {
   const [isCollapsed, setIsCollapsed] = useState(true)
   const [showCompleted, setShowCompleted] = useState(false)
 
-  const tareasActivas = tareas.filter(t => t.estado !== 'Done')
-  const tareasCompletadas = tareas.filter(t => t.estado === 'Done')
+  // NUEVO: Estados para el ordenamiento de la tabla
+  const [sortField, setSortField] = useState('none') // 'none', 'titulo', 'fechaVencimiento', 'fechaInicio'
+  const [sortAsc, setSortAsc] = useState(true)
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      if (sortAsc) {
+        setSortAsc(false)
+      } else {
+        setSortField('none') // Al tercer clic se quita el filtro/orden
+      }
+    } else {
+      setSortField(field)
+      setSortAsc(true)
+    }
+  }
+
+  // NUEVO: Función para procesar el orden de las listas
+  const ordenarTareas = (lista) => {
+    if (sortField === 'none') return lista
+    return [...lista].sort((a, b) => {
+      let valA = a[sortField] || ''
+      let valB = b[sortField] || ''
+
+      // Ordenar por fechas (poniendo vacías al final)
+      if (sortField === 'fechaInicio' || sortField === 'fechaVencimiento') {
+        if (!valA) return 1
+        if (!valB) return -1
+        return sortAsc 
+          ? parseISO(valA).getTime() - parseISO(valB).getTime()
+          : parseISO(valB).getTime() - parseISO(valA).getTime()
+      }
+
+      // Ordenar texto plano (Título)
+      return sortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA)
+    })
+  }
+
+  // Modificado para pasar las tareas filtradas por la función ordenadora
+  const tareasActivas = ordenarTareas(tareas.filter(t => t.estado !== 'Done'))
+  const tareasCompletadas = ordenarTareas(tareas.filter(t => t.estado === 'Done'))
 
   const handleDeleteProject = (e) => {
     e.stopPropagation()
