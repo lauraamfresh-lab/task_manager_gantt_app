@@ -323,11 +323,18 @@ function ProyectoGroup({ proyecto, tareas, onAdd, onEdit }) {
             <div className="p-6 text-center text-xs text-slate-500 italic">No hay tareas en este proyecto. ¡Crea una nueva!</div>
           ) : (
             <div>
-              <div className="grid grid-cols-[1fr_130px_100px_80px_70px_60px] px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500 bg-surface-800/20 border-b border-white/4">
-                <div>Tarea</div>
+              {/* MODIFICADO: Encabezados interactivos y clicables con indicador visual ▲ / ▼ */}
+              <div className="grid grid-cols-[1fr_130px_100px_80px_70px_60px] px-4 py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500 bg-surface-800/20 border-b border-white/4 select-none">
+                <div className="cursor-pointer hover:text-slate-300 flex items-center gap-1" onClick={() => handleSort('titulo')}>
+                  Tarea {sortField === 'titulo' ? (sortAsc ? '▲' : '▼') : ''}
+                </div>
                 <div>Estado</div>
-                <div>Vencimiento</div>
-                <div>Inicio</div>
+                <div className="cursor-pointer hover:text-slate-300 flex items-center gap-1" onClick={() => handleSort('fechaVencimiento')}>
+                  Vencimiento {sortField === 'fechaVencimiento' ? (sortAsc ? '▲' : '▼') : ''}
+                </div>
+                <div className="cursor-pointer hover:text-slate-300 flex items-center gap-1" onClick={() => handleSort('fechaInicio')}>
+                  Inicio {sortField === 'fechaInicio' ? (sortAsc ? '▲' : '▼') : ''}
+                </div>
                 <div>Duración</div>
                 <div className="text-end">Acción</div>
               </div>
