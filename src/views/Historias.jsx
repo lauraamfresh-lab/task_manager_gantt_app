@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { BookOpen, Plus, Trash2, ChevronDown, ChevronRight, PlusCircle, Pencil, Check } from 'lucide-react'
 import { useTask, getProjectColor } from '../context/TaskContext'
 
@@ -12,6 +12,17 @@ function ProyectoHistoriaGroup({ proyecto, historias }) {
   const [editTitulo, setEditTitulo] = useState('')
   const [editDescripcion, setEditDescripcion] = useState('')
 
+  // Referencia para la altura dinámica al EDITAR
+  const textareaEditRef = useRef(null)
+
+  // Efecto que ajusta la altura al escribir o al abrir el modo edición
+  useEffect(() => {
+    if (textareaEditRef.current) {
+      textareaEditRef.current.style.height = 'auto'
+      textareaEditRef.current.style.height = `${textareaEditRef.current.scrollHeight}px`
+    }
+  }, [editDescripcion, editingId])
+
   const iniciarEdicion = (h) => {
     setEditingId(h.id)
     setEditTitulo(h.titulo)
@@ -21,7 +32,7 @@ function ProyectoHistoriaGroup({ proyecto, historias }) {
   const guardarEdicion = (id) => {
     if (!editTitulo.trim()) return
     dispatch({
-      type: 'UPDATE_STORY', // Si no tienes un UPDATE_STORY, usa la lógica habitual de recrear o mapear en tu reducer
+      type: 'UPDATE_STORY', 
       payload: { id, proyecto, titulo: editTitulo.trim(), descripcion: editDescripcion.trim() }
     })
     setEditingId(null)
@@ -87,10 +98,10 @@ function ProyectoHistoriaGroup({ proyecto, historias }) {
                       className="w-full bg-surface-600 text-xs font-semibold text-slate-200 rounded px-2 py-1 border border-white/10 focus:outline-none"
                     />
                     <textarea 
+                      ref={textareaEditRef}
                       value={editDescripcion} 
                       onChange={e => setEditDescripcion(e.target.value)}
-                      rows={2}
-                      className="w-full bg-surface-600 text-xs text-slate-300 rounded p-2 border border-white/10 focus:outline-none resize-none"
+                      className="w-full bg-surface-600 text-xs text-slate-300 rounded p-2 border border-white/10 focus:outline-none resize-none overflow-hidden min-h-[48px]"
                     />
                   </div>
                 ) : (
@@ -156,6 +167,17 @@ export default function Historias() {
   const [descripcion, setDescripcion] = useState('')
   const [proyecto, setProyecto] = useState(state.proyectos[0] || '')
 
+  // Referencia para la altura dinámica al CREAR
+  const textareaCreateRef = useRef(null)
+
+  // Efecto que ajusta la altura al escribir un nuevo requerimiento
+  useEffect(() => {
+    if (textareaCreateRef.current) {
+      textareaCreateRef.current.style.height = 'auto'
+      textareaCreateRef.current.style.height = `${textareaCreateRef.current.scrollHeight}px`
+    }
+  }, [descripcion])
+
   const groupedHistorias = {}
   state.proyectos.forEach(p => { groupedHistorias[p] = [] })
   if (state.historias) {
@@ -196,6 +218,7 @@ export default function Historias() {
         </div>
       </div>
 
+      {/* Formulario de creación */}
       <form onSubmit={handleSubmit} className="bg-surface-700/40 border border-white/5 rounded-2xl p-5 space-y-4 shadow-xl">
         <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
           <Plus size={14} /> Nuevo Requerimiento
@@ -225,14 +248,15 @@ export default function Historias() {
           </div>
         </div>
 
+        {/* Textarea dinámico de creación */}
         <div className="space-y-1.5">
           <label className="text-xs text-slate-400 font-medium">Descripción (Historia de Usuario)</label>
           <textarea 
+            ref={textareaCreateRef}
             placeholder="Ej: Como [rol] quiero [acción] para [beneficio]..." 
             value={descripcion}
             onChange={e => setDescripcion(e.target.value)}
-            rows={2}
-            className="w-full bg-surface-600 border border-white/10 rounded-lg p-3 text-xs text-slate-200 focus:outline-none focus:border-accent-violet/60 resize-none leading-relaxed"
+            className="w-full bg-surface-600 border border-white/10 rounded-lg p-3 text-xs text-slate-200 focus:outline-none focus:border-accent-violet/60 resize-none leading-relaxed overflow-hidden min-h-[56px]"
           />
         </div>
 
