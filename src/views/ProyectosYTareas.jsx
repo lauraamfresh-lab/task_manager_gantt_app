@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { format, parseISO, isPast, isToday, differenceInDays } from 'date-fns'
-import { Plus, ExternalLink, Trash2, Pencil, ChevronDown, ChevronRight, CheckSquare, Square, FileText, Sun, ArrowUp, ArrowDown } from 'lucide-react'
+import { Plus, ExternalLink, Trash2, Pencil, ChevronDown, ChevronRight, CheckSquare, Square, FileText, Sun } from 'lucide-react'
 import { useTask, ESTADOS, ESTADO_CONFIG, getProjectColor } from '../context/TaskContext'
 import TaskModal from '../components/TaskModal'
 import ProjectModal from '../components/ProjectModal'
@@ -227,13 +227,13 @@ function TareaRow({ tarea, i, tareasLength, onEdit }) {
   )
 }
 
-function ProyectoGroup({ proyecto, tareas, index, totalProyectos, onAdd, onEdit }) {
+function ProyectoGroup({ proyecto, tareas, onAdd, onEdit, onEditProject }) {
   const { dispatch } = useTask()
   const col = getProjectColor(proyecto)
   const [isCollapsed, setIsCollapsed] = useState(true)
   const [showCompleted, setShowCompleted] = useState(false)
 
-  const [sortField, setSortField] = useState('none')
+  const [sortField, setSortField] = useState('none') 
   const [sortAsc, setSortAsc] = useState(true)
 
   const handleSort = (field) => {
@@ -241,7 +241,7 @@ function ProyectoGroup({ proyecto, tareas, index, totalProyectos, onAdd, onEdit 
       if (sortAsc) {
         setSortAsc(false)
       } else {
-        setSortField('none')
+        setSortField('none') 
       }
     } else {
       setSortField(field)
@@ -294,31 +294,20 @@ function ProyectoGroup({ proyecto, tareas, index, totalProyectos, onAdd, onEdit 
           </span>
         </div>
         
-        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-          {/* NUEVO: Controles de ordenamiento integrados en ProyectosYTareas */}
+        <div className="flex items-center gap-1">
           <button 
-            onClick={() => dispatch({ type: 'MOVE_PROJECT', payload: { index, direction: 'up' } })} 
-            disabled={index === 0} 
-            className="p-1 text-slate-500 hover:text-slate-300 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
-            title="Mover arriba"
-          >
-            <ArrowUp size={16} />
-          </button>
-          <button 
-            onClick={() => dispatch({ type: 'MOVE_PROJECT', payload: { index, direction: 'down' } })} 
-            disabled={index === totalProyectos - 1} 
-            className="p-1 text-slate-500 hover:text-slate-300 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
-            title="Mover abajo"
-          >
-            <ArrowDown size={16} />
-          </button>
-
-          <button 
-            onClick={() => onAdd(proyecto)} 
+            onClick={(e) => { e.stopPropagation(); onAdd(proyecto); }} 
             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-surface-600 transition-colors"
             title="Añadir tarea"
           >
             <Plus size={16} strokeWidth={2.5} />
+          </button>
+          <button 
+            onClick={(e) => { e.stopPropagation(); onEditProject(proyecto); }} 
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-surface-600 transition-colors"
+            title="Editar proyecto"
+          >
+            <Pencil size={16} strokeWidth={2.5} />
           </button>
           <button 
             onClick={handleDeleteProject} 
@@ -392,33 +381,30 @@ function ProyectoGroup({ proyecto, tareas, index, totalProyectos, onAdd, onEdit 
 export default function ProyectosYTareas() {
   const { state, dispatch } = useTask()
   const [projectModal, setProjectModal] = useState(false)
+  const [editProjectName, setEditProjectName] = useState(null)
   const [addModal, setAddModal] = useState(false)
   const [modal, setModal] = useState(null)
 
   const grouped = {}
-  state.proyectos.forEach(p => { grouped[p.nombre] = [] })
+  state.proyectos.forEach(p => { grouped[p] = [] })
   state.tareas.forEach(t => { if (grouped[t.proyecto]) grouped[t.proyecto].push(t) })
 
-  // MODIFICADO: Solo se trasladan a Historias si el proyecto está categorizado como 'Proyecto'
   const interceptarNuevaTarea = (nuevaTarea) => {
     if (nuevaTarea.historia && nuevaTarea.historia.trim() !== '') {
-      const projObj = state.proyectos.find(p => p.nombre === nuevaTarea.proyecto)
-      if (projObj && projObj.tipo === 'Proyecto') {
-        dispatch({
-          type: 'ADD_STORY',
-          payload: {
-            proyecto: nuevaTarea.proyecto,
-            titulo: `Req: ${nuevaTarea.titulo}`,
-            descripcion: nuevaTarea.historia
-          }
-        })
-      }
+      dispatch({
+        type: 'ADD_STORY',
+        payload: {
+          proyecto: nuevaTarea.proyecto,
+          titulo: `Req: ${nuevaTarea.titulo}`,
+          descripcion: nuevaTarea.historia
+        }
+      })
     }
   }
 
   return (
-    <div className="p-8 animate-fade-in max-w-7xl mx-auto space-y-10">
-      <div className="flex items-center justify-between gap-4 mb-4">
+    <div className="p-8 animate-fade-in max-w-7xl mx-auto">
+      <div className="flex items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-display font-bold text-slate-100 tracking-tight">Proyectos y Planificación</h1>
           <p className="text-sm text-slate-500 mt-1">
@@ -435,57 +421,26 @@ export default function ProyectosYTareas() {
         </div>
       </div>
 
-      {/* BLOQUE DE CONTENIDO: AGRUPACIONES REQUERIDAS */}
-      <div className="space-y-10">
-        
-        {/* GRUPO 1: PROYECTOS */}
-        <div className="space-y-4">
-          <h2 className="text-xl font-display font-bold text-slate-300 border-b border-white/10 pb-2">📁 Proyectos</h2>
-          {state.proyectos.map((p, index) => {
-            if (p.tipo !== 'Proyecto') return null;
-            return (
-              <ProyectoGroup 
-                key={p.nombre} 
-                proyecto={p.nombre} 
-                tareas={grouped[p.nombre] || []} 
-                index={index}
-                totalProyectos={state.proyectos.length}
-                onAdd={(proj) => setModal({ proyecto: proj })} 
-                onEdit={(t) => setModal({ editTask: t })} 
-              />
-            )
-          })}
-          {state.proyectos.filter(p => p.tipo === 'Proyecto').length === 0 && (
-            <p className="text-xs text-slate-500 italic pl-2">No hay elementos en la categoría Proyectos.</p>
-          )}
-        </div>
-
-        {/* GRUPO 2: OPERATIVA */}
-        <div className="space-y-4">
-          <h2 className="text-xl font-display font-bold text-slate-300 border-b border-white/10 pb-2">⚙️ Operativa</h2>
-          {state.proyectos.map((p, index) => {
-            if (p.tipo !== 'Operativa') return null;
-            return (
-              <ProyectoGroup 
-                key={p.nombre} 
-                proyecto={p.nombre} 
-                tareas={grouped[p.nombre] || []} 
-                index={index}
-                totalProyectos={state.proyectos.length}
-                onAdd={(proj) => setModal({ proyecto: proj })} 
-                onEdit={(t) => setModal({ editTask: t })} 
-              />
-            )
-          })}
-          {state.proyectos.filter(p => p.tipo === 'Operativa').length === 0 && (
-            <p className="text-xs text-slate-500 italic pl-2">No hay elementos en la categoría Operativa.</p>
-          )}
-        </div>
-
+      <div>
+        {Object.entries(grouped).map(([proyecto, tareas]) => (
+          <ProyectoGroup 
+            key={proyecto} 
+            proyecto={proyecto} 
+            tareas={tareas} 
+            onAdd={(p) => setModal({ proyecto: p })} 
+            onEdit={(t) => setModal({ editTask: t })} 
+            onEditProject={(p) => { setEditProjectName(p); setProjectModal(true); }}
+          />
+        ))}
       </div>
 
       {addModal && <TaskModal onClose={() => setAddModal(false)} onSave={interceptarNuevaTarea} />}
-      {projectModal && <ProjectModal onClose={() => setProjectModal(false)} />}
+      {projectModal && (
+        <ProjectModal 
+          onClose={() => { setProjectModal(false); setEditProjectName(null); }} 
+          editProjectName={editProjectName} 
+        />
+      )}
       {modal && !modal.editTask && <TaskModal initialProyecto={modal.proyecto} onClose={() => setModal(null)} onSave={interceptarNuevaTarea} />}
       {modal?.editTask && <TaskModal editTask={modal.editTask} onClose={() => setModal(null)} />}
     </div>

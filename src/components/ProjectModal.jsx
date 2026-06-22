@@ -2,23 +2,28 @@ import React, { useState } from 'react'
 import { X } from 'lucide-react'
 import { useTask } from '../context/TaskContext'
 
-export default function ProjectModal({ onClose }) {
+export default function ProjectModal({ onClose, editProjectName }) {
   const { dispatch, state } = useTask()
-  const [name, setName] = useState('')
-  const [tipo, setTipo] = useState('Proyecto') // Nuevo estado para la clasificación
+  const [name, setName] = useState(editProjectName || '')
   const [error, setError] = useState('')
 
   function handleSubmit(e) {
     e.preventDefault()
-    if (!name.trim()) {
+    const trimmedName = name.trim()
+    if (!trimmedName) {
       setError('El nombre del proyecto es requerido')
       return
     }
-    if (state.proyectos.some(p => p.nombre === name.trim())) {
+    if (trimmedName !== editProjectName && state.proyectos.includes(trimmedName)) {
       setError('Este proyecto ya existe')
       return
     }
-    dispatch({ type: 'ADD_PROJECT', payload: { nombre: name.trim(), tipo } })
+    
+    if (editProjectName) {
+      dispatch({ type: 'UPDATE_PROJECT', payload: { oldName: editProjectName, newName: trimmedName } })
+    } else {
+      dispatch({ type: 'ADD_PROJECT', payload: trimmedName })
+    }
     onClose()
   }
 
@@ -29,7 +34,9 @@ export default function ProjectModal({ onClose }) {
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div className="relative z-10 w-full max-w-md bg-surface-700 border border-white/10 rounded-2xl shadow-2xl animate-slide-in">
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/8">
-          <h2 className="font-display font-semibold text-slate-100">Nuevo proyecto / Clasificación</h2>
+          <h2 className="font-display font-semibold text-slate-100">
+            {editProjectName ? 'Editar proyecto' : 'Nuevo proyecto'}
+          </h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-200 transition-colors">
             <X size={18} />
           </button>
@@ -48,21 +55,8 @@ export default function ProjectModal({ onClose }) {
               placeholder="ej: Marketing Q3"
               className={inputCls}
               autoFocus
-            />
+                />
             {error && <p className="text-xs text-rose-400 mt-1">{error}</p>}
-          </div>
-
-          {/* Selector de tipo/categoría */}
-          <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1.5">Categoría de Agrupación</label>
-            <select
-              value={tipo}
-              onChange={(e) => setTipo(e.target.value)}
-              className="w-full bg-surface-600 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-accent-violet/60 transition-colors cursor-pointer"
-            >
-              <option value="Proyecto" className="bg-surface-700">Proyecto</option>
-              <option value="Operativa" className="bg-surface-700">Operativa</option>
-            </select>
           </div>
 
           <div className="flex gap-3 pt-2">
@@ -77,7 +71,7 @@ export default function ProjectModal({ onClose }) {
               type="submit"
               className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-accent-violet hover:bg-accent-violet/90 text-white transition-all glow-violet"
             >
-              Crear proyecto
+              {editProjectName ? 'Guardar cambios' : 'Crear proyecto'}
             </button>
           </div>
         </form>
