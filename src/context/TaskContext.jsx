@@ -175,17 +175,7 @@ export function getProjectColor(project, proyectosArray = []) {
 
   const fallbackColors = [
     { text: 'text-emerald-400', border: 'border-emerald-500/30', bg: 'bg-emerald-500/10', accent: '#34d399' },
-    { text: 'text-blue-400', border: 'border-blue-500/30', bg: 'bg-blue-500/10', accent: '#60a5fa' },
-    { text: 'text-rose-400', border: 'border-rose-500/30', bg: 'bg-rose-500/10', accent: '#f43f5e' },
-    { text: 'text-purple-400', border: 'border-purple-500/30', bg: 'bg-purple-500/10', accent: '#c084fc' },
-    { text: 'text-orange-400', border: 'border-orange-500/30', bg: 'bg-orange-500/10', accent: '#fb923c' },
-    { text: 'text-fuchsia-400', border: 'border-fuchsia-500/30', bg: 'bg-fuchsia-500/10', accent: '#e879f9' },
-    { text: 'text-sky-400', border: 'border-sky-500/30', bg: 'bg-sky-500/10', accent: '#38bdf8' },
-    { text: 'text-lime-400', border: 'border-lime-500/30', bg: 'bg-lime-500/10', accent: '#a3e635' },
-    { text: 'text-pink-400', border: 'border-pink-500/30', bg: 'bg-pink-500/10', accent: '#f472b6' },
-    { text: 'text-teal-400', border: 'border-teal-500/30', bg: 'bg-teal-500/10', accent: '#2dd4bf' },
-    { text: 'text-indigo-400', border: 'border-indigo-500/30', bg: 'bg-indigo-500/10', accent: '#818cf8' },
-    { text: 'text-amber-400', border: 'border-amber-500/30', bg: 'bg-amber-500/10', accent: '#fbbf24' },
+    
   ]
   
   const index = proyectosArray.findIndex(p => (typeof p === 'string' ? p : p.nombre) === project)
