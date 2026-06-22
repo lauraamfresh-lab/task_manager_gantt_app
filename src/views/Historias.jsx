@@ -1,45 +1,38 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { BookOpen, Plus, Trash2, ChevronDown, ChevronRight, PlusCircle, Pencil, Check } from 'lucide-react'
+import { BookOpen, Plus, Trash2, ChevronDown, ChevronRight, PlusCircle, Pencil, Check, Circle, ArrowUp, ArrowDown } from 'lucide-react'
 import { useTask, getProjectColor } from '../context/TaskContext'
 
-function ProyectoHistoriaGroup({ proyecto, historias }) {
-  const { dispatch } = useTask()
-  const col = getProjectColor(proyecto)
-  const [isCollapsed, setIsCollapsed] = useState(false)
+// COMPONENTE ITEM: Maneja su propia expansión, edición y completado.
+function HistoriaItem({ h, proyecto, dispatch }) {
+  const [isExpanded, setIsExpanded] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
   
-  // Estados para edición en línea de la historia
-  const [editingId, setEditingId] = useState(null)
-  const [editTitulo, setEditTitulo] = useState('')
-  const [editDescripcion, setEditDescripcion] = useState('')
-
-  // Referencia para la altura dinámica al EDITAR
+  const [editTitulo, setEditTitulo] = useState(h.titulo)
+  const [editDescripcion, setEditDescripcion] = useState(h.descripcion)
   const textareaEditRef = useRef(null)
 
-  // Efecto que ajusta la altura al escribir o al abrir el modo edición
   useEffect(() => {
-    if (textareaEditRef.current) {
+    if (isEditing && textareaEditRef.current) {
       textareaEditRef.current.style.height = 'auto'
       textareaEditRef.current.style.height = `${textareaEditRef.current.scrollHeight}px`
     }
-  }, [editDescripcion, editingId])
+  }, [editDescripcion, isEditing])
 
-  const iniciarEdicion = (h) => {
-    setEditingId(h.id)
-    setEditTitulo(h.titulo)
-    setEditDescripcion(h.descripcion)
-  }
-
-  const guardarEdicion = (id) => {
+  const guardarEdicion = () => {
     if (!editTitulo.trim()) return
     dispatch({
       type: 'UPDATE_STORY', 
-      payload: { id, proyecto, titulo: editTitulo.trim(), descripcion: editDescripcion.trim() }
+      payload: { ...h, titulo: editTitulo.trim(), descripcion: editDescripcion.trim() }
     })
-    setEditingId(null)
+    setIsEditing(false)
   }
 
-  // Sincronización cruzada: Crear una tarea a partir de esta historia
-  const enviarATareas = (h) => {
+  const toggleCompletada = (e) => {
+    e.stopPropagation()
+    dispatch({ type: 'TOGGLE_STORY_COMPLETION', payload: h.id })
+  }
+
+  const enviarATareas = () => {
     const confirmacion = window.confirm(`¿Quieres crear una tarea en el proyecto "${proyecto}" basada en este requerimiento?`)
     if (!confirmacion) return
 
@@ -62,21 +55,144 @@ function ProyectoHistoriaGroup({ proyecto, historias }) {
   }
 
   return (
+    <div className={`bg-surface-700/40 border ${h.completada ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-white/5'} rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start gap-4 hover:border-white/10 transition-colors`}>
+      
+      {isEditing ? (
+        <div className="space-y-2 flex-1 w-full">
+          <input 
+            type="text" 
+            value={editTitulo} 
+            onChange={e => setEditTitulo(e.target.value)}
+            className="w-full bg-surface-600 text-xs font-semibold text-slate-200 rounded px-2 py-1 border border-white/10 focus:outline-none"
+          />
+          <textarea 
+            ref={textareaEditRef}
+            value={editDescripcion} 
+            onChange={e => setEditDescripcion(e.target.value)}
+            className="w-full bg-surface-600 text-xs text-slate-300 rounded p-2 border border-white/10 focus:outline-none resize-none overflow-hidden min-h-[48px]"
+          />
+        </div>
+      ) : (
+        <div className="space-y-1.5 flex-1 w-full">
+          <div 
+            className="flex items-start gap-2.5 cursor-pointer group" 
+            onClick={() => setIsExpanded(!isExpanded)}
+          >
+            <button 
+              onClick={toggleCompletada} 
+              className="mt-0.5 shrink-0 focus:outline-none transition-transform active:scale-90"
+              title={h.completada ? "Marcar como pendiente" : "Marcar como completado"}
+            >
+              {h.completada ? (
+                <Check size={16} className="text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.4)]" />
+              ) : (
+                <Circle size={16} className="text-slate-500 group-hover:text-slate-400" />
+              )}
+            </button>
+            
+            <h4 className={`text-sm font-semibold flex-1 transition-colors ${h.completada ? 'text-slate-500 line-through' : 'text-slate-200'}`}>
+              {h.titulo}
+            </h4>
+            
+            <div className="text-slate-500 mt-0.5">
+              {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            </div>
+          </div>
+
+          {isExpanded && (
+            <p className={`text-xs leading-relaxed pl-7 font-sans whitespace-pre-wrap mt-2 ${h.completada ? 'text-slate-500' : 'text-slate-400'}`}>
+              {h.descripcion}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* BOTONERA DE ACCIONES */}
+      <div className="flex items-center gap-1 shrink-0 mt-2 sm:mt-0">
+        {isEditing ? (
+          <button 
+            onClick={guardarEdicion}
+            className="text-emerald-400 hover:text-emerald-300 p-1.5 rounded-lg hover:bg-emerald-500/10 transition-all"
+            title="Guardar cambios"
+          >
+            <Check size={14} />
+          </button>
+        ) : (
+          <>
+            <button 
+              onClick={enviarATareas}
+              className="text-violet-400 hover:text-violet-300 p-1.5 rounded-lg hover:bg-violet-500/10 transition-all"
+              title="Añadir a tareas del proyecto"
+            >
+              <PlusCircle size={14} />
+            </button>
+            <button 
+              onClick={() => setIsEditing(true)}
+              className="text-slate-400 hover:text-slate-200 p-1.5 rounded-lg hover:bg-surface-500/30 transition-all"
+              title="Editar historia"
+            >
+              <Pencil size={14} />
+            </button>
+          </>
+        )}
+        <button 
+          onClick={() => dispatch({ type: 'DELETE_STORY', payload: h.id })}
+          className="text-slate-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-500/10 transition-all"
+          title="Borrar historia"
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
+
+    </div>
+  )
+}
+
+function ProyectoHistoriaGroup({ proyecto, historias, index, totalProyectos }) {
+  const { dispatch } = useTask()
+  const col = getProjectColor(proyecto)
+  const [isCollapsed, setIsCollapsed] = useState(false)
+  
+  const historiasCompletadas = historias.filter(h => h.completada).length
+
+  return (
     <div className="mb-6 bg-surface-700/30 border border-white/5 rounded-2xl overflow-hidden shadow-xl">
       {/* Cabecera del Grupo de Proyecto */}
       <div 
         onClick={() => setIsCollapsed(!isCollapsed)}
-        className="px-5 py-3.5 bg-surface-800/60 border-b border-white/5 flex justify-between items-center cursor-pointer select-none"
+        className="px-5 py-3.5 bg-surface-800/60 border-b border-white/5 flex flex-wrap justify-between items-center cursor-pointer select-none"
       >
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 flex-1">
           <div className="text-slate-400">
             {isCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
           </div>
           <span className="w-3 h-3 rounded-full" style={{ backgroundColor: col.accent }} />
           <h3 className="font-display font-bold text-slate-200 text-base">{proyecto}</h3>
-          <span className="text-xs font-mono text-slate-500 bg-white/5 px-2 py-0.5 rounded-md">
-            {historias.length} {historias.length === 1 ? 'requerimiento' : 'requerimientos'}
+          
+          {/* Contador de progreso */}
+          <span className={`text-xs font-mono px-2 py-0.5 rounded-md border ${historiasCompletadas === historias.length && historias.length > 0 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-white/5 text-slate-400 border-white/5'}`}>
+            {historiasCompletadas} / {historias.length}
           </span>
+        </div>
+
+        {/* Controles de ordenamiento (con e.stopPropagation para no colapsar el proyecto al hacer clic) */}
+        <div className="flex items-center gap-1 ml-4" onClick={(e) => e.stopPropagation()}>
+          <button 
+            onClick={() => dispatch({ type: 'MOVE_PROJECT', payload: { index, direction: 'up' } })} 
+            disabled={index === 0} 
+            className="p-1 text-slate-500 hover:text-slate-300 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+            title="Mover proyecto arriba"
+          >
+            <ArrowUp size={16} />
+          </button>
+          <button 
+            onClick={() => dispatch({ type: 'MOVE_PROJECT', payload: { index, direction: 'down' } })} 
+            disabled={index === totalProyectos - 1} 
+            className="p-1 text-slate-500 hover:text-slate-300 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+            title="Mover proyecto abajo"
+          >
+            <ArrowDown size={16} />
+          </button>
         </div>
       </div>
 
@@ -87,71 +203,7 @@ function ProyectoHistoriaGroup({ proyecto, historias }) {
             <p className="text-xs text-slate-500 italic p-2">No hay historias de usuario en este proyecto.</p>
           ) : (
             historias.map(h => (
-              <div key={h.id} className="bg-surface-700/40 border border-white/5 rounded-xl p-4 flex justify-between items-start gap-4 hover:border-white/10 transition-colors">
-                
-                {editingId === h.id ? (
-                  <div className="space-y-2 flex-1">
-                    <input 
-                      type="text" 
-                      value={editTitulo} 
-                      onChange={e => setEditTitulo(e.target.value)}
-                      className="w-full bg-surface-600 text-xs font-semibold text-slate-200 rounded px-2 py-1 border border-white/10 focus:outline-none"
-                    />
-                    <textarea 
-                      ref={textareaEditRef}
-                      value={editDescripcion} 
-                      onChange={e => setEditDescripcion(e.target.value)}
-                      className="w-full bg-surface-600 text-xs text-slate-300 rounded p-2 border border-white/10 focus:outline-none resize-none overflow-hidden min-h-[48px]"
-                    />
-                  </div>
-                ) : (
-                  <div className="space-y-1.5 flex-1">
-                    <h4 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
-                      <BookOpen size={14} className="text-slate-500 shrink-0" />
-                      {h.titulo}
-                    </h4>
-                    <p className="text-xs text-slate-400 leading-relaxed pl-5 font-sans whitespace-pre-wrap">{h.descripcion}</p>
-                  </div>
-                )}
-
-                {/* BOTONERA DE ACCIÓN MUTUA */}
-                <div className="flex items-center gap-1 shrink-0">
-                  {editingId === h.id ? (
-                    <button 
-                      onClick={() => guardarEdicion(h.id)}
-                      className="text-emerald-400 hover:text-emerald-300 p-1.5 rounded-lg hover:bg-emerald-500/10 transition-all"
-                      title="Guardar cambios"
-                    >
-                      <Check size={14} />
-                    </button>
-                  ) : (
-                    <>
-                      <button 
-                        onClick={() => enviarATareas(h)}
-                        className="text-violet-400 hover:text-violet-300 p-1.5 rounded-lg hover:bg-violet-500/10 transition-all"
-                        title="Añadir a tareas del proyecto"
-                      >
-                        <PlusCircle size={14} />
-                      </button>
-                      <button 
-                        onClick={() => iniciarEdicion(h)}
-                        className="text-slate-400 hover:text-slate-200 p-1.5 rounded-lg hover:bg-surface-500/30 transition-all"
-                        title="Editar historia"
-                      >
-                        <Pencil size={14} />
-                      </button>
-                    </>
-                  )}
-                  <button 
-                    onClick={() => dispatch({ type: 'DELETE_STORY', payload: h.id })}
-                    className="text-slate-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-500/10 transition-all"
-                    title="Borrar historia"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-
-              </div>
+              <HistoriaItem key={h.id} h={h} proyecto={proyecto} dispatch={dispatch} />
             ))
           )}
         </div>
@@ -167,10 +219,8 @@ export default function Historias() {
   const [descripcion, setDescripcion] = useState('')
   const [proyecto, setProyecto] = useState(state.proyectos[0] || '')
 
-  // Referencia para la altura dinámica al CREAR
   const textareaCreateRef = useRef(null)
 
-  // Efecto que ajusta la altura al escribir un nuevo requerimiento
   useEffect(() => {
     if (textareaCreateRef.current) {
       textareaCreateRef.current.style.height = 'auto'
@@ -198,7 +248,8 @@ export default function Historias() {
         id: `us-${Date.now()}`,
         proyecto, 
         titulo: titulo.trim(), 
-        descripcion: descripcion.trim() 
+        descripcion: descripcion.trim(),
+        completada: false
       }
     })
     setTitulo('')
@@ -218,7 +269,6 @@ export default function Historias() {
         </div>
       </div>
 
-      {/* Formulario de creación */}
       <form onSubmit={handleSubmit} className="bg-surface-700/40 border border-white/5 rounded-2xl p-5 space-y-4 shadow-xl">
         <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
           <Plus size={14} /> Nuevo Requerimiento
@@ -248,7 +298,6 @@ export default function Historias() {
           </div>
         </div>
 
-        {/* Textarea dinámico de creación */}
         <div className="space-y-1.5">
           <label className="text-xs text-slate-400 font-medium">Descripción (Historia de Usuario)</label>
           <textarea 
@@ -268,11 +317,13 @@ export default function Historias() {
       </form>
 
       <div className="space-y-2">
-        {Object.entries(groupedHistorias).map(([proyectoName, historiasList]) => (
+        {state.proyectos.map((proyectoName, index) => (
           <ProyectoHistoriaGroup 
             key={proyectoName} 
             proyecto={proyectoName} 
-            historias={historiasList} 
+            historias={groupedHistorias[proyectoName] || []} 
+            index={index}
+            totalProyectos={state.proyectos.length}
           />
         ))}
       </div>

@@ -38,7 +38,7 @@ const MOCK_DATA = {
   ],
   bugs: [],
   historias: [
-    { id: 'h-1', proyecto: 'Demo Project', titulo: 'Visualización de márgenes netos', descripcion: 'Como Director Financiero quiero ver el margen neto filtrado por región para tomar decisiones de presupuesto.' }
+    { id: 'h-1', proyecto: 'Demo Project', titulo: 'Visualización de márgenes netos', descripcion: 'Como Director Financiero quiero ver el margen neto filtrado por región para tomar decisiones de presupuesto.', completada: false }
   ]
 }
 
@@ -70,6 +70,17 @@ function reducer(state, action) {
         bugs: (state.bugs || []).filter(b => b.proyecto !== action.payload),
         historias: (state.historias || []).filter(h => h.proyecto !== action.payload)
       }
+    case 'MOVE_PROJECT': {
+      const { index, direction } = action.payload;
+      const nuevosProyectos = [...state.proyectos];
+      
+      if (direction === 'up' && index > 0) {
+        [nuevosProyectos[index - 1], nuevosProyectos[index]] = [nuevosProyectos[index], nuevosProyectos[index - 1]];
+      } else if (direction === 'down' && index < nuevosProyectos.length - 1) {
+        [nuevosProyectos[index + 1], nuevosProyectos[index]] = [nuevosProyectos[index], nuevosProyectos[index + 1]];
+      }
+      return { ...state, proyectos: nuevosProyectos };
+    }
     case 'ADD_TASK':
       return { ...state, tareas: [...state.tareas, { ...action.payload, id: Date.now().toString() }] }
     case 'UPDATE_TASK':
@@ -90,6 +101,13 @@ function reducer(state, action) {
       return { ...state, historias: (state.historias || []).map(h => h.id === action.payload.id ? { ...h, ...action.payload } : h) }
     case 'DELETE_STORY':
       return { ...state, historias: (state.historias || []).filter(h => h.id !== action.payload) }
+    case 'TOGGLE_STORY_COMPLETION':
+      return {
+        ...state,
+        historias: (state.historias || []).map(h => 
+          h.id === action.payload ? { ...h, completada: !h.completada } : h
+        )
+      }
     default:
       return state
   }
@@ -111,6 +129,18 @@ export function TaskProvider({ children }) {
 
 export function useTask() { return useContext(TaskContext) }
 
+export const ETIQUETAS_OPCIONES = ['Laura', 'Lola', 'Sin asignar']
+export const ETIQUETA_COLORS = {
+  'Laura': { accent: '#7c6cfc', bg: 'bg-violet-500/15', text: 'text-violet-400', border: 'border-violet-500/30' },
+  'Lola':  { accent: '#22d3ee', bg: 'bg-cyan-500/15',   text: 'text-cyan-400',   border: 'border-cyan-500/30' },
+  'Sin asignar': { accent: '#64748b', bg: 'bg-slate-500/15', text: 'text-slate-400', border: 'border-slate-500/30' }
+}
+
+export function getEtiquetaColor(etiqueta) {
+  if (!etiqueta) return ETIQUETA_COLORS['Sin asignar']
+  return ETIQUETA_COLORS[etiqueta] || ETIQUETA_COLORS['Sin asignar']
+}
+
 export const ESTADOS = ['To Do', 'In Progress', 'Done']
 export const ESTADO_CONFIG = {
   'To Do':       { color: 'text-slate-400',  bg: 'bg-slate-500/15',  border: 'border-slate-500/30',  dot: 'bg-slate-400' },
@@ -118,11 +148,9 @@ export const ESTADO_CONFIG = {
   'Done':        { color: 'text-emerald-400', bg: 'bg-emerald-500/15', border: 'border-emerald-500/30', dot: 'bg-emerald-400' },
 }
 
-// NUEVA ASIGNACIÓN SECUENCIAL FIJA CON 12 COLORES ÚNICOS
 export function getProjectColor(project, proyectosArray = []) {
   const normalized = project?.toUpperCase().trim() || ''
   
-  // 1. Reglas prioritarias fijas para tus proyectos base
   if (normalized.includes('TES1')) {
     return { accent: '#22d3ee', text: 'text-cyan-400', border: 'border-cyan-500/30', bg: 'bg-cyan-500/10' }
   }
@@ -130,7 +158,6 @@ export function getProjectColor(project, proyectosArray = []) {
     return { accent: '#f59e0b', text: 'text-amber-400', border: 'border-amber-500/30', bg: 'bg-amber-500/10' }
   }
 
-  // 2. Paleta extendida ordenada de 12 colores únicos
   const fallbackColors = [
     { text: 'text-emerald-400', border: 'border-emerald-500/30', bg: 'bg-emerald-500/10', accent: '#34d399' },
     { text: 'text-blue-400', border: 'border-blue-500/30', bg: 'bg-blue-500/10', accent: '#60a5fa' },
@@ -146,23 +173,8 @@ export function getProjectColor(project, proyectosArray = []) {
     { text: 'text-amber-400', border: 'border-amber-500/30', bg: 'bg-amber-500/10', accent: '#fbbf24' },
   ]
   
-  // 3. Encontrar el índice secuencial real del proyecto en la lista
   const index = proyectosArray.indexOf(project)
-  
-  // Si por alguna razón no se encuentra, usamos 0 por defecto.
   const colorIndex = index !== -1 ? index % fallbackColors.length : 0
   
   return fallbackColors[colorIndex]
-}
-
-export const ETIQUETAS_OPCIONES = ['Laura', 'Lola', 'Sin asignar']
-export const ETIQUETA_COLORS = {
-  'Laura': { accent: '#7c6cfc', bg: 'bg-violet-500/15', text: 'text-violet-400', border: 'border-violet-500/30' },
-  'Lola':  { accent: '#22d3ee', bg: 'bg-cyan-500/15',   text: 'text-cyan-400',   border: 'border-cyan-500/30' },
-  'Sin asignar': { accent: '#64748b', bg: 'bg-slate-500/15', text: 'text-slate-400', border: 'border-slate-500/30' }
-}
-
-export function getEtiquetaColor(etiqueta) {
-  if (!etiqueta) return ETIQUETA_COLORS['Sin asignar']
-  return ETIQUETA_COLORS[etiqueta] || ETIQUETA_COLORS['Sin asignar']
 }
