@@ -90,7 +90,8 @@ function HistoriaItem({ h, proyecto, dispatch }) {
               )}
             </button>
             
-            <h4 className={`text-sm font-semibold flex-1 transition-colors ${h.completada ? 'text-slate-500 line-through' : 'text-slate-200'}`}>
+            {/* Cambiado: Eliminado 'line-through' y ajustado a 'text-slate-400' cuando está completada */}
+            <h4 className={`text-sm font-semibold flex-1 transition-colors ${h.completada ? 'text-slate-400' : 'text-slate-200'}`}>
               {h.titulo}
             </h4>
             
@@ -175,7 +176,7 @@ function ProyectoHistoriaGroup({ proyecto, historias, index, totalProyectos }) {
           </span>
         </div>
 
-        {/* Controles de ordenamiento (con e.stopPropagation para no colapsar el proyecto al hacer clic) */}
+        {/* Controles de ordenamiento */}
         <div className="flex items-center gap-1 ml-4" onClick={(e) => e.stopPropagation()}>
           <button 
             onClick={() => dispatch({ type: 'MOVE_PROJECT', payload: { index, direction: 'up' } })} 
