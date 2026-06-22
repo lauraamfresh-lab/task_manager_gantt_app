@@ -1,352 +1,240 @@
-import React, { useState, useMemo } from 'react'
-import { format, parseISO, differenceInDays, addDays, startOfWeek } from 'date-fns'
-import { es } from 'date-fns/locale'
-import { BarChart2, Filter, Tag, ChevronDown, ChevronRight, ChevronLeft, Calendar } from 'lucide-react'
-import { useTask, ESTADO_CONFIG, getEtiquetaColor, ETIQUETAS_OPCIONES, getProjectColor } from '../context/TaskContext'
+import React, { useState } from 'react'
+import { useTask, getProjectColor, ESTADOS } from '../context/TaskContext'
+import { format, parseISO, startOfWeek, addDays, isSameDay, isWithinInterval, differenceInDays } from 'date-fns'
+import { ChevronLeft, ChevronRight, Calendar, Briefcase, Tag, AlertCircle } from 'lucide-react'
 
 export default function Gantt() {
   const { state } = useTask()
+  const { tareas } = state
   
-  // Resguardar variables seguras ante cargas asíncronas o localStorage vacío
-  const tareasData = useMemo(() => state?.tareas || [], [state?.tareas])
-  const proyectosData = useMemo(() => state?.proyectos || [], [state?.proyectos])
+  // Guardamos la fecha de referencia para la vista semanal/quincenal
+  const [currentDate, setCurrentDate] = useState(new Date())
+  const [viewMode, setViewMode] = useState('weeks') // 'weeks' o 'biweek'
 
-  const [proyectoFiltrado, setProyectoFiltrado] = useState('Todos')
-  const [etiquetaFiltrada, setEtiquetaFiltrada] = useState('Todas') 
-  const [mostrarCompletadas, setMostrarCompletadas] = useState(false)
+  // Filtrado por proyecto o etiqueta opcional
+  const [selectedProyecto, setSelectedProyecto] = useState('Todos')
+  const [selectedEtiqueta, setSelectedEtiqueta] = useState('Todas')
+
+  // Obtener rangos de la cuadrícula de días según el modo de vista
+  const startOfGrid = startOfWeek(currentDate, { weekStartsOn: 1 }) // Empezar en Lunes
+  const totalDays = viewMode === 'weeks' ? 7 : 14
   
-  // Estados para controlar la vista y la navegación temporal
-  const [vistaMode, setVistaMode] = useState('mes') // 'semana' | 'mes' | 'tres_meses'
-  const [fechaInicioVista, setFechaInicioVista] = useState(() => 
-    startOfWeek(new Date(), { weekStartsOn: 1 })
-  )
-  
-  // 1. FILTRADO MULTICRITERIO (Modificado con control estricto de fechas vacías)
-  const validTareas = useMemo(() => {
-    return tareasData.filter(t => {
-      // Si no existe fecha de inicio o vencimiento, o están vacías, las omitimos por completo para que no rompan el Gantt
-      if (!t.fechaInicio || t.fechaInicio.trim() === "" || !t.fechaVencimiento || t.fechaVencimiento.trim() === "") return false
-      
-      const pasaProyecto = proyectoFiltrado === 'Todos' || t.proyecto === proyectoFiltrado
-      const pasaEtiqueta = etiquetaFiltrada === 'Todas' || t.etiqueta === etiquetaFiltrada
-      
-      return pasaProyecto && pasaEtiqueta
-    })
-  }, [tareasData, proyectoFiltrado, etiquetaFiltrada])
+  const daysArray = Array.from({ length: totalDays }, (_, i) => addDays(startOfGrid, i))
+  const endOfGrid = daysArray[daysArray.length - 1]
 
-  // 2. LÍMITES TEMPORALES DEL TIMELINE
-  const timelineBounds = useMemo(() => {
-    const min = fechaInicioVista
-    let diasAAnadir = 31 // Vista 'mes' por defecto
-    let numMarkers = 8
+  // Cambiar de semana/quincena
+  const handlePrev = () => setCurrentDate(addDays(currentDate, -totalDays))
+  const handleNext = () => setCurrentDate(addDays(currentDate, totalDays))
+  const handleToday = () => setCurrentDate(new Date())
 
-    if (vistaMode === 'semana') {
-      diasAAnadir = 7
-      numMarkers = 8
-    } else if (vistaMode === 'tres_meses') {
-      diasAAnadir = 90
-      numMarkers = 8
-    }
-
-    const max = addDays(min, diasAAnadir)
-    const totalDays = Math.max(1, differenceInDays(max, min))
+  // Filtrar tareas que tengan fechas válidas y coincidan con los filtros selectores
+  const filteredTasks = tareas.filter(tarea => {
+    if (!tarea.fechaInicio || !tarea.fechaVencimiento) return false
     
-    const markers = []
-    for (let i = 0; i < numMarkers; i++) {
-      const fraction = i / (numMarkers - 1)
-      const daysOffset = Math.round(fraction * totalDays)
-      markers.push(addDays(min, daysOffset))
-    }
-
-    return { minDate: min, maxDate: max, totalDays, markers }
-  }, [fechaInicioVista, vistaMode])
-
-  const { minDate, maxDate, totalDays, markers } = timelineBounds
-
-  // Función de navegación temporal según la vista activa
-  const navegarTimeline = (direccion) => {
-    const delta = vistaMode === 'semana' ? 7 : vistaMode === 'mes' ? 30 : 90
-    setFechaInicioVista(prev => addDays(prev, direccion * delta))
-  }
-
-  const getPercentagePosition = (dateObj) => {
-    const diff = differenceInDays(dateObj, minDate)
-    return Math.min(100, Math.max(0, (diff / totalDays) * 100))
-  }
-
-  const todayPosition = useMemo(() => {
-    const today = new Date()
-    const maxDate = addDays(minDate, totalDays)
-    if (today >= minDate && today <= maxDate) {
-      const diff = differenceInDays(today, minDate)
-      return Math.min(100, Math.max(0, (diff / totalDays) * 100))
-    }
-    return null
-  }, [minDate, totalDays])
-
-  // Separar y ordenar tareas activas y completadas
-  const tareasActivas = useMemo(() => {
-    return [...validTareas]
-      .filter(t => t.estado !== 'Done')
-      .sort((a, b) => parseISO(a.fechaInicio).getTime() - parseISO(b.fechaInicio).getTime())
-  }, [validTareas])
-
-  const tareasCompletadas = useMemo(() => {
-    return [...validTareas]
-      .filter(t => t.estado === 'Done')
-      .sort((a, b) => parseISO(a.fechaInicio).getTime() - parseISO(b.fechaInicio).getTime())
-  }, [validTareas])
-
-  // Función interna reusable para renderizar cada fila
-  const renderFilaGantt = (tarea) => {
-    const start = parseISO(tarea.fechaInicio)
-    let end = tarea.fechaVencimiento ? parseISO(tarea.fechaVencimiento) : addDays(start, 1)
-    if (end <= start) end = addDays(start, 1)
-
-    const barLeft = getPercentagePosition(start)
-    const barRight = getPercentagePosition(end)
-    const barWidth = Math.max(1.5, barRight - barLeft)
-
-    const cfg = ESTADO_CONFIG[tarea.estado] || ESTADO_CONFIG['To Do']
-    const tagColor = getEtiquetaColor(tarea.etiqueta)
-    const projColor = getProjectColor(tarea.proyecto, proyectosData)
+    const matchesProyecto = selectedProyecto === 'Todos' || tarea.proyecto === selectedProyecto
+    const matchesEtiqueta = selectedEtiqueta === 'Todas' || tarea.etiqueta === selectedEtiqueta
     
-    return (
-      <div key={tarea.id} className="grid grid-cols-[480px_1fr] items-center hover:bg-white/[0.02] transition-colors min-h-[56px] py-2 relative z-10 border-b border-white/[0.02]">
-        <div className="px-5 pr-4 flex items-center justify-between gap-4 border-r border-white/5 h-full">
-          <div className="flex items-center gap-4 flex-1 min-w-0">
-            
-            {/* Identificador de Proyecto Único */}
-            <span 
-              className={`text-[9px] font-bold px-2 py-0.5 rounded border uppercase text-center w-24 shrink-0 truncate tracking-wider ${projColor.bg} ${projColor.border} ${projColor.text}`} 
-              title={tarea.proyecto}
-            >
-              {tarea.proyecto}
-            </span>
+    if (!matchesProyecto || !matchesEtiqueta) return false
 
-            {/* Descripción de la tarea */}
-            <span className={`text-sm font-medium pr-2 break-words flex-1 leading-relaxed ${tarea.estado === 'Done' ? 'line-through text-slate-500 opacity-60' : 'text-slate-300'}`}>
-              {tarea.titulo}
-            </span>
-          </div>
-          
-          {/* Estado */}
-          <span className={`text-[10px] font-medium rounded-full px-2 py-0.5 border shrink-0 uppercase tracking-wider ${cfg.bg} ${cfg.color} ${cfg.border}`}>
-            {tarea.estado === 'In Progress' ? 'Progreso' : tarea.estado}
-          </span>
-        </div>
+    // Verificar si la tarea se cruza de alguna manera con el rango visible en pantalla
+    try {
+      const tStart = parseISO(tarea.fechaInicio)
+      const tEnd = parseISO(tarea.fechaVencimiento)
+      
+      return (
+        isWithinInterval(tStart, { start: startOfGrid, end: endOfGrid }) ||
+        isWithinInterval(tEnd, { start: startOfGrid, end: endOfGrid }) ||
+        (tStart <= startOfGrid && tEnd >= endOfGrid)
+      )
+    } catch (e) {
+      return false
+    }
+  })
 
-        {/* Barra de Tiempo en el Timeline */}
-        <div className="relative h-full w-full flex items-center px-4">
-          <div 
-            className="absolute h-6 rounded-lg flex items-center px-2 shadow-md border cursor-default overflow-hidden transition-all duration-150"
-            style={{ 
-              left: `${barLeft}%`, 
-              width: `${barWidth}%`,
-              backgroundColor: `${tagColor.accent}20`, 
-              borderColor: `${tagColor.accent}60`,
-              borderWidth: '1px'
-            }}
-            title={`${tarea.titulo} [Proyecto: ${tarea.proyecto}] [Etiqueta: ${tarea.etiqueta || 'Ninguna'}]`}
-          >
-            <div 
-              className="absolute left-0 top-0 bottom-0 opacity-40"
-              style={{ 
-                width: tarea.estado === 'Done' ? '100%' : tarea.estado === 'In Progress' ? '50%' : '0%',
-                backgroundColor: tagColor.accent
-              }}
-            />
-            {barWidth > 12 && (
-              <span className="text-[10px] font-semibold text-white/95 truncate z-10 font-mono">
-                {tarea.etiqueta || 'Sin etiqueta'}
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-    )
-  }
+  // Extraer las opciones de filtros únicas de forma segura
+  const uniqueProyectos = ['Todos', ...(state.proyectos || [])]
+  const uniqueEtiquetas = ['Todas', ...new Set(tareas.map(t => t.etiqueta).filter(Boolean))]
 
   return (
-    <div className="p-8 animate-fade-in bg-[#0b0f19] min-h-screen text-slate-100">
-      
-      {/* Header Superior con Filtros */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
-            <BarChart2 size={18} className="text-accent-violet" />
+    <div className="space-y-6">
+      {/* Cabecera de controles */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-surface-700/40 border border-white/5 p-4 rounded-2xl backdrop-blur-md">
+        <div className="flex items-center gap-2">
+          <div className="p-2 bg-accent-violet/10 rounded-xl text-accent-violet">
+            <Calendar size={20} />
           </div>
           <div>
-            <h1 className="text-2xl font-display font-bold text-slate-100">Diagrama de Gantt</h1>
-            <p className="text-sm text-slate-500 mt-0.5">Seguimiento visual de tareas ordenadas por inicio</p>
+            <h1 className="text-xl font-display font-semibold text-slate-100">Vista de Gantt</h1>
+            <p className="text-xs text-slate-400">Cronograma de tareas en curso y dependencias temporales</p>
           </div>
         </div>
 
-        {/* Panel de Filtros superiores (Vista, Proyecto, Etiqueta) */}
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Selector de tipo de Vista */}
-          <div className="flex items-center gap-2 bg-surface-800 border border-white/5 px-3 py-1.5 rounded-xl">
-            <Calendar size={13} className="text-slate-400" />
-            <span className="text-xs font-medium text-slate-400 mr-1">Vista:</span>
-            <select 
-              value={vistaMode} 
-              onChange={(e) => {
-                setVistaMode(e.target.value)
-                setFechaInicioVista(startOfWeek(new Date(), { weekStartsOn: 1 }))
-              }}
-              className="bg-transparent text-xs font-semibold text-slate-200 outline-none cursor-pointer"
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          {/* Selectores de filtros */}
+          <select
+            value={selectedProyecto}
+            onChange={(e) => setSelectedProyecto(e.target.value)}
+            className="bg-surface-600 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-accent-violet/60"
+          >
+            {uniqueProyectos.map(p => (
+              <option key={typeof p === 'string' ? p : p.nombre || 'sin-nombre'} value={typeof p === 'string' ? p : p.nombre}>
+                {typeof p === 'string' ? p : p.nombre}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={selectedEtiqueta}
+            onChange={(e) => setSelectedEtiqueta(e.target.value)}
+            className="bg-surface-600 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-accent-violet/60"
+          >
+            {uniqueEtiquetas.map(e => <option key={e} value={e}>{e}</option>)}
+          </select>
+
+          <div className="h-4 w-[1px] bg-white/10 mx-1 hidden md:block" />
+
+          {/* Selector de modo de vista */}
+          <div className="bg-surface-600 p-0.5 rounded-xl border border-white/10 flex">
+            <button
+              onClick={() => setViewMode('weeks')}
+              className={`px-3 py-1 text-xs font-medium rounded-lg transition-all ${viewMode === 'weeks' ? 'bg-accent-violet text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}
             >
-              <option value="semana" className="bg-surface-700">Semana</option>
-              <option value="mes" className="bg-surface-700">Mes</option>
-              <option value="tres_meses" className="bg-surface-700">3 Meses</option>
-            </select>
+              Semana
+            </button>
+            <button
+              onClick={() => setViewMode('biweek')}
+              className={`px-3 py-1 text-xs font-medium rounded-lg transition-all ${viewMode === 'biweek' ? 'bg-accent-violet text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}
+            >
+              14 Días
+            </button>
           </div>
 
-          <div className="flex items-center gap-2 bg-surface-800 border border-white/5 px-3 py-1.5 rounded-xl">
-            <Filter size={13} className="text-slate-400" />
-            <span className="text-xs font-medium text-slate-400 mr-1">Proyecto:</span>
-            <select 
-              value={proyectoFiltrado} 
-              onChange={(e) => setProyectoFiltrado(e.target.value)}
-              className="bg-transparent text-xs font-semibold text-slate-200 outline-none cursor-pointer"
-            >
-              <option value="Todos" className="bg-surface-700">Todos</option>
-              {proyectosData.map(p => <option key={p} value={p} className="bg-surface-700">{p}</option>)}
-            </select>
-          </div>
+          <div className="h-4 w-[1px] bg-white/10 mx-1 hidden md:block" />
 
-          <div className="flex items-center gap-2 bg-surface-800 border border-white/5 px-3 py-1.5 rounded-xl">
-            <Tag size={13} className="text-slate-400" />
-            <span className="text-xs font-medium text-slate-400 mr-1">Etiqueta:</span>
-            <select 
-              value={etiquetaFiltrada} 
-              onChange={(e) => setEtiquetaFiltrada(e.target.value)}
-              className="bg-transparent text-xs font-semibold text-slate-200 outline-none cursor-pointer"
-            >
-              <option value="Todas" className="bg-surface-700">Todas las etiquetas</option>
-              {ETIQUETAS_OPCIONES.map(tag => <option key={tag} value={tag} className="bg-surface-700">{tag}</option>)}
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* LEYENDA INFORMATIVA */}
-      <div className="flex flex-wrap gap-4 mb-6 bg-surface-800/40 border border-white/5 p-3 rounded-xl text-xs">
-        <span className="text-slate-500 font-medium flex items-center gap-1">Colores por etiqueta:</span>
-        {ETIQUETAS_OPCIONES.map(tag => {
-          const colorCfg = getEtiquetaColor(tag)
-          return (
-            <div key={tag} className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: colorCfg.accent }} />
-              <span className="text-slate-300 font-medium">{tag}</span>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* CONTROL DE NAVEGACIÓN TEMPORAL */}
-      <div className="flex justify-end mb-3">
-        <div className="flex items-center gap-1.5 bg-surface-800/90 border border-white/5 p-1 rounded-xl">
-          <button
-            type="button"
-            onClick={() => navegarTimeline(-1)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors"
-          >
-            <ChevronLeft size={14} strokeWidth={2.5} />
-          </button>
-          <button
-            type="button"
-            onClick={() => setFechaInicioVista(startOfWeek(new Date(), { weekStartsOn: 1 }))}
-            className="px-2.5 py-1 text-xs font-semibold text-slate-200 bg-white/5 hover:bg-white/10 rounded-md transition-colors"
-          >
-            Hoy
-          </button>
-          <button
-            type="button"
-            onClick={() => navegarTimeline(1)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors"
-          >
-            <ChevronRight size={14} strokeWidth={2.5} />
-          </button>
-          
-          <div className="h-4 w-px bg-white/10 mx-1" />
-          
-          <div className="flex items-center gap-1.5 text-xs font-mono font-medium text-slate-300 pr-2.5 pl-1">
-            <Calendar size={13} className="text-violet-400" />
-            <span className="lowercase">
-              {format(minDate, 'dd MMM', { locale: es }).replace('.', '')} – {format(maxDate, 'dd MMM yyyy', { locale: es }).replace('.', '')}
-            </span>
+          {/* Navegación temporal */}
+          <div className="flex items-center bg-surface-600 rounded-xl border border-white/10 overflow-hidden">
+            <button onClick={handlePrev} className="p-2 hover:bg-white/5 text-slate-400 hover:text-slate-200 transition-colors">
+              <ChevronLeft size={14} />
+            </button>
+            <button onClick={handleToday} className="px-3 py-1 text-xs font-medium border-x border-white/5 text-slate-300 hover:text-slate-100 hover:bg-white/5 transition-all">
+              Hoy
+            </button>
+            <button onClick={handleNext} className="p-2 hover:bg-white/5 text-slate-400 hover:text-slate-200 transition-colors">
+              <ChevronRight size={14} />
+            </button>
           </div>
         </div>
       </div>
 
-      {/* TIMELINE GANTT */}
-      <div className="border border-white/5 rounded-2xl bg-surface-700/30 overflow-hidden shadow-2xl">
+      {/* Contenedor principal del diagrama de Gantt */}
+      <div className="bg-surface-700/20 border border-white/5 rounded-2xl overflow-hidden backdrop-blur-md">
         <div className="overflow-x-auto">
-          <div className="min-w-[1100px] relative">
-            
-            {/* Rejilla de Fondo */}
-            <div className="absolute inset-0 left-[480px] pointer-events-none flex justify-between z-0">
-              {markers.map((_, idx) => <div key={idx} className="w-px h-full border-l border-white/[0.03]" />)}
-              {todayPosition !== null && (
-                <div className="absolute top-0 bottom-0 w-0.5 border-l-2 border-dashed border-rose-500/50 z-20" style={{ left: `${todayPosition}%` }} />
-              )}
-            </div>
-
-            {/* Cabecera fechas */}
-            <div className="grid grid-cols-[480px_1fr] bg-surface-800/90 border-b border-white/10 items-center text-xs font-medium uppercase tracking-wider text-slate-500 h-12 z-10 relative">
-              <div className="px-5 border-r border-white/5 h-full flex items-center">Tareas Planificadas</div>
-              <div className="relative h-full flex justify-between items-center px-4 font-mono text-[10px] text-slate-400">
-                {markers.map((date, i) => (
-                  <span key={i} className="transform -translate-x-1/2 whitespace-nowrap lowercase">
-                    {format(date, 'dd MMM', { locale: es }).replace('.', '')}
-                  </span>
-                ))}
-                {todayPosition !== null && (
-                  <span className="absolute bg-rose-500 text-white font-sans text-[9px] font-bold px-1.5 py-0.5 rounded shadow-md top-1 transform -translate-x-1/2 z-30" style={{ left: `${todayPosition}%` }}>
-                    Hoy
-                  </span>
-                )}
+          <div className="min-w-[800px]">
+            {/* Cabecera del Grid (Días) */}
+            <div className="grid grid-cols-12 border-b border-white/5 bg-surface-800/40">
+              <div className="col-span-4 p-4 text-xs font-semibold text-slate-400 uppercase tracking-wider border-r border-white/5">
+                Tareas / Contexto
+              </div>
+              <div className="col-span-8 grid" style={{ gridTemplateColumns: `repeat(${totalDays}, minmax(0, 1fr))` }}>
+                {daysArray.map((day, idx) => {
+                  const isTodayActive = isSameDay(day, new Date())
+                  return (
+                    <div
+                      key={idx}
+                      className={`p-2 text-center border-r last:border-r-0 border-white/5 flex flex-col items-center justify-center min-h-[55px] ${isTodayActive ? 'bg-accent-violet/10' : ''}`}
+                    >
+                      <span className={`text-[10px] font-medium tracking-wide uppercase ${isTodayActive ? 'text-accent-violet' : 'text-slate-500'}`}>
+                        {format(day, 'eee')}
+                      </span>
+                      <span className={`text-xs font-bold mt-0.5 rounded-full w-5 h-5 flex items-center justify-center ${isTodayActive ? 'bg-accent-violet text-white' : 'text-slate-300'}`}>
+                        {format(day, 'd')}
+                      </span>
+                    </div>
+                  )
+                })}
               </div>
             </div>
 
-            {/* Renderizado de Datos */}
-            <div className="divide-y divide-white/[0.04]">
-              {validTareas.length === 0 ? (
-                <div className="p-12 text-center text-sm text-slate-500">No se encontraron tareas con rango de fechas para mostrar.</div>
+            {/* Cuerpo del Gantt */}
+            <div className="divide-y divide-white/5">
+              {filteredTasks.length === 0 ? (
+                <div className="p-12 text-center flex flex-col items-center justify-center gap-2 text-slate-500">
+                  <AlertCircle size={24} className="text-slate-600" />
+                  <p className="text-sm">No hay tareas programadas en este rango de fechas visibles.</p>
+                </div>
               ) : (
-                <>
-                  {/* Bloque 1: Tareas Activas/Pendientes */}
-                  {tareasActivas.map(tarea => renderFilaGantt(tarea))}
+                filteredTasks.map(tarea => {
+                  const tStart = parseISO(tarea.fechaInicio)
+                  const tEnd = parseISO(tarea.fechaVencimiento)
+                  
+                  // Calcular los índices de inicio y fin relativos a nuestra cuadrícula
+                  let startIdx = differenceInDays(tStart, startOfGrid)
+                  let endIdx = differenceInDays(tEnd, startOfGrid)
 
-                  {/* Bloque 2: Desplegable de Tareas Completadas */}
-                  {tareasCompletadas.length > 0 && (
-                    <div className="bg-[#0e1424]/40">
-                      <div className="grid grid-cols-[480px_1fr] items-center min-h-[44px] border-b border-white/[0.04]">
-                        <div className="px-5 h-full flex items-center">
-                          <button
-                            type="button"
-                            onClick={() => setMostrarCompletadas(!mostrarCompletadas)}
-                            className="flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-slate-200 transition-colors py-1.5 px-2.5 rounded-lg bg-surface-800/60 border border-white/5"
-                          >
-                            {mostrarCompletadas ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                            <span>Mostrar tareas completadas ({tareasCompletadas.length})</span>
-                          </button>
+                  // Ajustar límites para que no desborden la visualización externa
+                  if (startIdx < 0) startIdx = 0
+                  if (endIdx >= totalDays) endIdx = totalDays - 1
+                  if (endIdx < startIdx) endIdx = startIdx
+
+                  const spanLength = endIdx - startIdx + 1
+
+                  // Obtener color dinámico invocando de forma segura la función global
+                  const colorConfig = getProjectColor(tarea.proyecto, state.proyectos || [])
+
+                  return (
+                    <div key={tarea.id} className="grid grid-cols-12 items-center group hover:bg-white/[0.01] transition-colors">
+                      {/* Información lateral de la tarea */}
+                      <div className="col-span-4 p-4 border-r border-white/5 space-y-1.5 max-w-full overflow-hidden">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full ${colorConfig?.bg || 'bg-emerald-500/20'} ${colorConfig?.text || 'text-emerald-400'} border ${colorConfig?.border || 'border-emerald-500/30'}`} />
+                          <span className="text-[10px] font-semibold text-slate-400 truncate tracking-wide bg-surface-600/50 px-2 py-0.5 rounded-md border border-white/5">
+                            {tarea.proyecto}
+                          </span>
                         </div>
-                        <div className="h-full w-full" />
+                        <h4 className="text-xs font-medium text-slate-200 group-hover:text-white transition-colors truncate pr-2">
+                          {tarea.titulo}
+                        </h4>
+                        <div className="flex items-center gap-3 text-[10px] text-slate-500">
+                          <span className="flex items-center gap-1">
+                            <Tag size={10} /> {tarea.etiqueta}
+                          </span>
+                          <span>•</span>
+                          <span>{tarea.estado}</span>
+                        </div>
                       </div>
 
-                      {mostrarCompletadas && (
-                        <div className="divide-y divide-white/[0.02]">
-                          {tareasCompletadas.map(tarea => renderFilaGantt(tarea))}
+                      {/* Timeline / Barra de progreso temporal */}
+                      <div className="col-span-8 h-full grid relative items-center" style={{ gridTemplateColumns: `repeat(${totalDays}, minmax(0, 1fr))` }}>
+                        {/* Líneas divisorias de fondo */}
+                        {Array.from({ length: totalDays }).map((_, i) => (
+                          <div key={i} className="absolute top-0 bottom-0 border-r border-white/[0.02] pointer-events-none" style={{ left: `${(i + 1) * (100 / totalDays)}%` }} />
+                        ))}
+
+                        {/* Barra del Gantt */}
+                        <div
+                          style={{
+                            gridColumnStart: startIdx + 1,
+                            gridColumnEnd: `span ${spanLength}`
+                          }}
+                          className="py-1 px-1 z-10"
+                        >
+                          <div
+                            className={`h-7 rounded-lg ${colorConfig?.bg || 'bg-emerald-500/10'} border ${colorConfig?.border || 'border-emerald-500/30'} ${colorConfig?.text || 'text-emerald-400'} px-2.5 flex items-center justify-between shadow-sm relative overflow-hidden group/bar transition-all duration-200 hover:brightness-110`}
+                          >
+                            <span className="text-[10px] font-medium truncate select-none">
+                              {tarea.titulo}
+                            </span>
+                            <span className="text-[9px] font-bold opacity-60 ml-2 whitespace-nowrap bg-black/10 px-1.5 py-0.5 rounded">
+                              {differenceInDays(tEnd, tStart) + 1} d
+                            </span>
+                          </div>
                         </div>
-                      )}
+                      </div>
                     </div>
-                  )}
-                </>
+                  )
+                })
               )}
             </div>
-
           </div>
         </div>
       </div>
