@@ -5,6 +5,7 @@ import { useTask } from '../context/TaskContext'
 export default function ProjectModal({ onClose }) {
   const { dispatch, state } = useTask()
   const [name, setName] = useState('')
+  const [tipo, setTipo] = useState('Proyecto') // Nuevo estado para la clasificación
   const [error, setError] = useState('')
 
   function handleSubmit(e) {
@@ -13,11 +14,11 @@ export default function ProjectModal({ onClose }) {
       setError('El nombre del proyecto es requerido')
       return
     }
-    if (state.proyectos.includes(name)) {
+    if (state.proyectos.some(p => p.nombre === name.trim())) {
       setError('Este proyecto ya existe')
       return
     }
-    dispatch({ type: 'ADD_PROJECT', payload: name })
+    dispatch({ type: 'ADD_PROJECT', payload: { nombre: name.trim(), tipo } })
     onClose()
   }
 
@@ -28,7 +29,7 @@ export default function ProjectModal({ onClose }) {
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div className="relative z-10 w-full max-w-md bg-surface-700 border border-white/10 rounded-2xl shadow-2xl animate-slide-in">
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/8">
-          <h2 className="font-display font-semibold text-slate-100">Nuevo proyecto</h2>
+          <h2 className="font-display font-semibold text-slate-100">Nuevo proyecto / Clasificación</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-200 transition-colors">
             <X size={18} />
           </button>
@@ -49,6 +50,19 @@ export default function ProjectModal({ onClose }) {
               autoFocus
             />
             {error && <p className="text-xs text-rose-400 mt-1">{error}</p>}
+          </div>
+
+          {/* Selector de tipo/categoría */}
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1.5">Categoría de Agrupación</label>
+            <select
+              value={tipo}
+              onChange={(e) => setTipo(e.target.value)}
+              className="w-full bg-surface-600 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-accent-violet/60 transition-colors cursor-pointer"
+            >
+              <option value="Proyecto" className="bg-surface-700">Proyecto</option>
+              <option value="Operativa" className="bg-surface-700">Operativa</option>
+            </select>
           </div>
 
           <div className="flex gap-3 pt-2">

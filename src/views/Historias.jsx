@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react'
 import { BookOpen, Plus, Trash2, ChevronDown, ChevronRight, PlusCircle, Pencil, Check, Circle, ArrowUp, ArrowDown } from 'lucide-react'
 import { useTask, getProjectColor } from '../context/TaskContext'
 
-// COMPONENTE ITEM: Maneja su propia expansión, edición y completado.
 function HistoriaItem({ h, proyecto, dispatch }) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
@@ -90,7 +89,6 @@ function HistoriaItem({ h, proyecto, dispatch }) {
               )}
             </button>
             
-            {/* Cambiado: Eliminado 'line-through' y ajustado a 'text-slate-400' cuando está completada */}
             <h4 className={`text-sm font-semibold flex-1 transition-colors ${h.completada ? 'text-slate-400' : 'text-slate-200'}`}>
               {h.titulo}
             </h4>
@@ -108,7 +106,6 @@ function HistoriaItem({ h, proyecto, dispatch }) {
         </div>
       )}
 
-      {/* BOTONERA DE ACCIONES */}
       <div className="flex items-center gap-1 shrink-0 mt-2 sm:mt-0">
         {isEditing ? (
           <button 
@@ -158,7 +155,6 @@ function ProyectoHistoriaGroup({ proyecto, historias, index, totalProyectos }) {
 
   return (
     <div className="mb-6 bg-surface-700/30 border border-white/5 rounded-2xl overflow-hidden shadow-xl">
-      {/* Cabecera del Grupo de Proyecto */}
       <div 
         onClick={() => setIsCollapsed(!isCollapsed)}
         className="px-5 py-3.5 bg-surface-800/60 border-b border-white/5 flex flex-wrap justify-between items-center cursor-pointer select-none"
@@ -170,13 +166,11 @@ function ProyectoHistoriaGroup({ proyecto, historias, index, totalProyectos }) {
           <span className="w-3 h-3 rounded-full" style={{ backgroundColor: col.accent }} />
           <h3 className="font-display font-bold text-slate-200 text-base">{proyecto}</h3>
           
-          {/* Contador de progreso */}
           <span className={`text-xs font-mono px-2 py-0.5 rounded-md border ${historiasCompletadas === historias.length && historias.length > 0 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-white/5 text-slate-400 border-white/5'}`}>
             {historiasCompletadas} / {historias.length}
           </span>
         </div>
 
-        {/* Controles de ordenamiento */}
         <div className="flex items-center gap-1 ml-4" onClick={(e) => e.stopPropagation()}>
           <button 
             onClick={() => dispatch({ type: 'MOVE_PROJECT', payload: { index, direction: 'up' } })} 
@@ -197,7 +191,6 @@ function ProyectoHistoriaGroup({ proyecto, historias, index, totalProyectos }) {
         </div>
       </div>
 
-      {/* Listado de Historias del Proyecto */}
       {!isCollapsed && (
         <div className="p-4 space-y-3">
           {historias.length === 0 ? (
@@ -218,9 +211,18 @@ export default function Historias() {
   
   const [titulo, setTitulo] = useState('')
   const [descripcion, setDescripcion] = useState('')
-  const [proyecto, setProyecto] = useState(state.proyectos[0] || '')
+  const [proyecto, setProyecto] = useState('')
 
   const textareaCreateRef = useRef(null)
+
+  // Filtramos los proyectos que corresponden únicamente a 'Proyecto'
+  const proyectosFiltrados = state.proyectos.filter(p => p.tipo === 'Proyecto')
+
+  useEffect(() => {
+    if (proyectosFiltrados.length > 0 && !proyecto) {
+      setProyecto(proyectosFiltrados[0].nombre)
+    }
+  }, [state.proyectos, proyectosFiltrados, proyecto])
 
   useEffect(() => {
     if (textareaCreateRef.current) {
@@ -230,7 +232,8 @@ export default function Historias() {
   }, [descripcion])
 
   const groupedHistorias = {}
-  state.proyectos.forEach(p => { groupedHistorias[p] = [] })
+  proyectosFiltrados.forEach(p => { groupedHistorias[p.nombre] = [] })
+  
   if (state.historias) {
     state.historias.forEach(h => {
       if (groupedHistorias[h.proyecto]) {
@@ -283,7 +286,7 @@ export default function Historias() {
               onChange={e => setProyecto(e.target.value)} 
               className="w-full bg-surface-600 border border-white/10 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-accent-violet/60 cursor-pointer"
             >
-              {state.proyectos.map(p => <option key={p} value={p} className="bg-surface-700">{p}</option>)}
+              {proyectosFiltrados.map(p => <option key={p.nombre} value={p.nombre} className="bg-surface-700">{p.nombre}</option>)}
             </select>
           </div>
 
@@ -318,15 +321,18 @@ export default function Historias() {
       </form>
 
       <div className="space-y-2">
-        {state.proyectos.map((proyectoName, index) => (
-          <ProyectoHistoriaGroup 
-            key={proyectoName} 
-            proyecto={proyectoName} 
-            historias={groupedHistorias[proyectoName] || []} 
-            index={index}
-            totalProyectos={state.proyectos.length}
-          />
-        ))}
+        {state.proyectos.map((pObj, index) => {
+          if (pObj.tipo !== 'Proyecto') return null;
+          return (
+            <ProyectoHistoriaGroup 
+              key={pObj.nombre} 
+              proyecto={pObj.nombre} 
+              historias={groupedHistorias[pObj.nombre] || []} 
+              index={index}
+              totalProyectos={state.proyectos.length}
+            />
+          )
+        })}
       </div>
 
     </div>

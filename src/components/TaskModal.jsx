@@ -5,20 +5,19 @@ import { useTask, ESTADOS, ETIQUETAS_OPCIONES } from '../context/TaskContext'
 export default function TaskModal({ editTask, initialProyecto, onClose, onSave }) {
   const { state, dispatch } = useTask()
   
-  // Estados del formulario
   const [titulo, setTitulo] = useState('')
   const [proyecto, setProyecto] = useState('')
   const [estado, setEstado] = useState('To Do')
   const [fechaInicio, setFechaInicio] = useState('')
   const [fechaVencimiento, setFechaVencimiento] = useState('')
-  const [etiqueta, setEtiqueta] = useState('Laura') // Valor inicial por defecto de tus opciones
+  const [etiqueta, setEtiqueta] = useState('Laura')
   const [notas, setNotas] = useState('')
-  const [linkDocumento, setLinkDocumento] = useState('') // Nuevo campo para el enlace
+  const [linkDocumento, setLinkDocumento] = useState('')
   const [sincronizarHistoria, setSincronizarHistoria] = useState(false)
 
   useEffect(() => {
     if (state.proyectos.length > 0) {
-      setProyecto(initialProyecto || state.proyectos[0])
+      setProyecto(initialProyecto || state.proyectos[0].nombre)
     }
 
     if (editTask) {
@@ -46,7 +45,7 @@ export default function TaskModal({ editTask, initialProyecto, onClose, onSave }
       fechaVencimiento: fechaVencimiento || null,
       etiqueta,
       notas: notas.trim(),
-      linkDocumento: linkDocumento.trim() || null, // Guardamos el enlace de forma segura
+      linkDocumento: linkDocumento.trim() || null,
       historia: sincronizarHistoria ? notas.trim() : null
     }
 
@@ -74,7 +73,6 @@ export default function TaskModal({ editTask, initialProyecto, onClose, onSave }
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
       <div className="bg-surface-800 border border-white/10 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl text-slate-100 flex flex-col max-h-[90vh]">
         
-        {/* Cabecera */}
         <div className="px-6 py-4 border-b border-white/5 flex justify-between items-center bg-surface-850">
           <h2 className="text-lg font-display font-bold text-slate-200">
             {editTask ? 'Editar Tarea' : 'Crear Nueva Tarea'}
@@ -84,10 +82,8 @@ export default function TaskModal({ editTask, initialProyecto, onClose, onSave }
           </button>
         </div>
 
-        {/* Formulario */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
           
-          {/* Título de la tarea */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">Título de la tarea</label>
             <input
@@ -100,7 +96,6 @@ export default function TaskModal({ editTask, initialProyecto, onClose, onSave }
             />
           </div>
 
-          {/* 1. Cambio: Estado del formulario siempre visible debajo del título */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">Estado de la Tarea</label>
             <select
@@ -114,7 +109,6 @@ export default function TaskModal({ editTask, initialProyecto, onClose, onSave }
             </select>
           </div>
 
-          {/* Fila: Proyecto y Responsable */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1"><Briefcase size={12} /> Proyecto</label>
@@ -124,12 +118,11 @@ export default function TaskModal({ editTask, initialProyecto, onClose, onSave }
                 className="w-full bg-surface-700 border border-white/5 rounded-xl px-3 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-accent-violet/50 cursor-pointer"
               >
                 {state.proyectos.map((p) => (
-                  <option key={p} value={p}>{p}</option>
+                  <option key={p.nombre} value={p.nombre}>{p.nombre}</option>
                 ))}
               </select>
             </div>
 
-            {/* 2. Cambio: Responsable convertido a desplegable usando ETIQUETAS_OPCIONES */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1"><Tag size={12} /> Responsable</label>
               <select
@@ -144,8 +137,6 @@ export default function TaskModal({ editTask, initialProyecto, onClose, onSave }
             </div>
           </div>
 
-
-          {/* Fila: Tiempos y Planificación */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1">
@@ -172,7 +163,6 @@ export default function TaskModal({ editTask, initialProyecto, onClose, onSave }
             </div>
           </div>
 
-          {/* 3. Cambio: Campo para pegar un enlace (Documento/OneDrive/SharePoint) */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1">
               <Link2 size={12} /> Enlace del Documentación / Adjunto
@@ -186,7 +176,6 @@ export default function TaskModal({ editTask, initialProyecto, onClose, onSave }
             />
           </div>
 
-          {/* Caja de Historia de Usuario / Requerimiento */}
           <div className="space-y-1.5 bg-surface-750 p-3.5 rounded-xl border border-white/5">
             <div className="flex justify-between items-center mb-1">
               <label className="text-xs font-semibold uppercase tracking-wider text-accent-violet flex items-center gap-1.5">
@@ -213,9 +202,6 @@ export default function TaskModal({ editTask, initialProyecto, onClose, onSave }
             />
           </div>
 
-          
-
-          {/* Botones de acción */}
           <div className="flex justify-end gap-2 pt-4 border-t border-white/5">
             <button
               type="button"
