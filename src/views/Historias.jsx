@@ -147,8 +147,8 @@ function HistoriaItem({ h, proyecto, dispatch }) {
 }
 
 function ProyectoHistoriaGroup({ proyecto, historias, index, totalProyectos }) {
-  const { dispatch } = useTask()
-  const col = getProjectColor(proyecto)
+  const { state, dispatch } = useTask()
+  const col = getProjectColor(proyecto, state.proyectos)
   const [isCollapsed, setIsCollapsed] = useState(false)
   
   const historiasCompletadas = historias.filter(h => h.completada).length
@@ -215,7 +215,6 @@ export default function Historias() {
 
   const textareaCreateRef = useRef(null)
 
-  // Filtramos los proyectos que corresponden únicamente a 'Proyecto'
   const proyectosFiltrados = state.proyectos.filter(p => p.tipo === 'Proyecto')
 
   useEffect(() => {
@@ -233,7 +232,6 @@ export default function Historias() {
 
   const groupedHistorias = {}
   proyectosFiltrados.forEach(p => { groupedHistorias[p.nombre] = [] })
-  
   if (state.historias) {
     state.historias.forEach(h => {
       if (groupedHistorias[h.proyecto]) {

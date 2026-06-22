@@ -11,7 +11,7 @@ export default function TaskModal({ editTask, initialProyecto, onClose, onSave }
   const [fechaInicio, setFechaInicio] = useState('')
   const [fechaVencimiento, setFechaVencimiento] = useState('')
   const [etiqueta, setEtiqueta] = useState('Laura')
-  const [notas, setNotas] = useState('')
+  const [notes, setNotas] = useState('')
   const [linkDocumento, setLinkDocumento] = useState('')
   const [sincronizarHistoria, setSincronizarHistoria] = useState(false)
 
@@ -44,9 +44,9 @@ export default function TaskModal({ editTask, initialProyecto, onClose, onSave }
       fechaInicio: fechaInicio || null, 
       fechaVencimiento: fechaVencimiento || null,
       etiqueta,
-      notas: notas.trim(),
+      notas: notes.trim(),
       linkDocumento: linkDocumento.trim() || null,
-      historia: sincronizarHistoria ? notas.trim() : null
+      historia: sincronizarHistoria ? notes.trim() : null
     }
 
     if (editTask) {
@@ -196,7 +196,7 @@ export default function TaskModal({ editTask, initialProyecto, onClose, onSave }
             </div>
             <textarea
               placeholder="Como [usuario], quiero [acción] para [beneficio]... o detalles de la tarea."
-              value={notas}
+              value={notes}
               onChange={(e) => setNotas(e.target.value)}
               className="w-full h-24 bg-surface-700/60 text-xs text-slate-300 placeholder-slate-600 border border-white/5 rounded-lg p-3 focus:outline-none focus:border-accent-violet/40 resize-none leading-relaxed"
             />

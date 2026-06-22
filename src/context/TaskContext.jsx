@@ -50,7 +50,8 @@ function init() {
     try {
       const parsed = JSON.parse(local)
       if (!parsed.historias) parsed.historias = []
-      // MIGRACIÓN DE DATOS EXISTENTES: Convierte strings antiguos a objetos con tipo por defecto
+      
+      // MIGRACIÓN DE SEGURIDAD: Transforma los strings antiguos a objetos con categoría por defecto
       if (parsed.proyectos) {
         parsed.proyectos = parsed.proyectos.map(p => typeof p === 'string' ? { nombre: p, tipo: 'Proyecto' } : p)
       }
@@ -66,6 +67,16 @@ function reducer(state, action) {
   switch (action.type) {
     case 'ADD_PROJECT':
       return { ...state, proyectos: [...state.proyectos, action.payload] }
+    case 'UPDATE_PROJECT': {
+      const { oldName, newName, tipo } = action.payload
+      return {
+        ...state,
+        proyectos: state.proyectos.map(p => p.nombre === oldName ? { nombre: newName, tipo } : p),
+        tareas: state.tareas.map(t => t.proyecto === oldName ? { ...t, proyecto: newName } : t),
+        bugs: (state.bugs || []).map(b => b.proyecto === oldName ? { ...b, proyecto: newName } : b),
+        historias: (state.historias || []).map(h => h.proyecto === oldName ? { ...h, proyecto: newName } : h)
+      }
+    }
     case 'DELETE_PROJECT':
       return { 
         ...state, 
