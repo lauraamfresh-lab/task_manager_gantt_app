@@ -7,6 +7,10 @@ import { useTask, ESTADO_CONFIG, getEtiquetaColor, ETIQUETAS_OPCIONES, getProjec
 export default function Gantt() {
   const { state } = useTask()
   
+  // Resguardar variables seguras ante cargas asíncronas o localStorage vacío
+  const tareasData = useMemo(() => state?.tareas || [], [state?.tareas])
+  const proyectosData = useMemo(() => state?.proyectos || [], [state?.proyectos])
+
   const [proyectoFiltrado, setProyectoFiltrado] = useState('Todos')
   const [etiquetaFiltrada, setEtiquetaFiltrada] = useState('Todas') 
   const [mostrarCompletadas, setMostrarCompletadas] = useState(false)
@@ -19,7 +23,7 @@ export default function Gantt() {
   
   // 1. FILTRADO MULTICRITERIO (Modificado con control estricto de fechas vacías)
   const validTareas = useMemo(() => {
-    return state.tareas.filter(t => {
+    return tareasData.filter(t => {
       // Si no existe fecha de inicio o vencimiento, o están vacías, las omitimos por completo para que no rompan el Gantt
       if (!t.fechaInicio || t.fechaInicio.trim() === "" || !t.fechaVencimiento || t.fechaVencimiento.trim() === "") return false
       
@@ -28,7 +32,7 @@ export default function Gantt() {
       
       return pasaProyecto && pasaEtiqueta
     })
-  }, [state.tareas, proyectoFiltrado, etiquetaFiltrada])
+  }, [tareasData, proyectoFiltrado, etiquetaFiltrada])
 
   // 2. LÍMITES TEMPORALES DEL TIMELINE
   const timelineBounds = useMemo(() => {
@@ -74,7 +78,8 @@ export default function Gantt() {
     const today = new Date()
     const maxDate = addDays(minDate, totalDays)
     if (today >= minDate && today <= maxDate) {
-      return getPercentagePosition(today)
+      const diff = differenceInDays(today, minDate)
+      return Math.min(100, Math.max(0, (diff / totalDays) * 100))
     }
     return null
   }, [minDate, totalDays])
@@ -92,7 +97,7 @@ export default function Gantt() {
       .sort((a, b) => parseISO(a.fechaInicio).getTime() - parseISO(b.fechaInicio).getTime())
   }, [validTareas])
 
-  // Función interna reutilizable para renderizar cada fila exactamente como estaba antes
+  // Función interna reusable para renderizar cada fila
   const renderFilaGantt = (tarea) => {
     const start = parseISO(tarea.fechaInicio)
     let end = tarea.fechaVencimiento ? parseISO(tarea.fechaVencimiento) : addDays(start, 1)
@@ -104,7 +109,7 @@ export default function Gantt() {
 
     const cfg = ESTADO_CONFIG[tarea.estado] || ESTADO_CONFIG['To Do']
     const tagColor = getEtiquetaColor(tarea.etiqueta)
-    const projColor = getProjectColor(tarea.proyecto)
+    const projColor = getProjectColor(tarea.proyecto, proyectosData)
     
     return (
       <div key={tarea.id} className="grid grid-cols-[480px_1fr] items-center hover:bg-white/[0.02] transition-colors min-h-[56px] py-2 relative z-10 border-b border-white/[0.02]">
@@ -179,7 +184,7 @@ export default function Gantt() {
 
         {/* Panel de Filtros superiores (Vista, Proyecto, Etiqueta) */}
         <div className="flex flex-wrap items-center gap-3">
-          {/* Selector de tipo de Vista (Semana, Mes, 3 Meses) */}
+          {/* Selector de tipo de Vista */}
           <div className="flex items-center gap-2 bg-surface-800 border border-white/5 px-3 py-1.5 rounded-xl">
             <Calendar size={13} className="text-slate-400" />
             <span className="text-xs font-medium text-slate-400 mr-1">Vista:</span>
@@ -206,7 +211,7 @@ export default function Gantt() {
               className="bg-transparent text-xs font-semibold text-slate-200 outline-none cursor-pointer"
             >
               <option value="Todos" className="bg-surface-700">Todos</option>
-              {state.proyectos.map(p => <option key={p} value={p} className="bg-surface-700">{p}</option>)}
+              {proyectosData.map(p => <option key={p} value={p} className="bg-surface-700">{p}</option>)}
             </select>
           </div>
 
@@ -239,7 +244,7 @@ export default function Gantt() {
         })}
       </div>
 
-      {/* CONTROL DE NAVEGACIÓN TEMPORAL (Posicionado justo encima del Gantt, a la derecha) */}
+      {/* CONTROL DE NAVEGACIÓN TEMPORAL */}
       <div className="flex justify-end mb-3">
         <div className="flex items-center gap-1.5 bg-surface-800/90 border border-white/5 p-1 rounded-xl">
           <button
