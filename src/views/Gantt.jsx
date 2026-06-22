@@ -19,18 +19,8 @@ export default function Gantt() {
   const [fechaInicioVista, setFechaInicioVista] = useState(() => 
     startOfWeek(new Date(), { weekStartsOn: 1 })
   )
-  
-  const validTareas = useMemo(() => {
-    return tareasData.filter(t => {
-      if (!t.fechaInicio || t.fechaInicio.trim() === "" || !t.fechaVencimiento || t.fechaVencimiento.trim() === "") return false
-      
-      const pasaProyecto = proyectoFiltrado === 'Todos' || t.proyecto === proyectoFiltrado
-      const pasaEtiqueta = etiquetaFiltrada === 'Todas' || t.etiqueta === etiquetaFiltrada
-      
-      return pasaProyecto && pasaEtiqueta
-    })
-  }, [tareasData, proyectoFiltrado, etiquetaFiltrada])
 
+  // 1. LÍMITES TEMPORALES DEL TIMELINE (Calculado PRIMERO para poder filtrar las tareas después)
   const timelineBounds = useMemo(() => {
     const min = fechaInicioVista
     let diasAAnadir = 31 
@@ -59,6 +49,32 @@ export default function Gantt() {
 
   const { minDate, maxDate, totalDays, markers } = timelineBounds
 
+  // 2. FILTRADO MULTICRITERIO (Ahora incluye el filtro por ventana de tiempo visualizada)
+  const validTareas = useMemo(() => {
+    return tareasData.filter(t => {
+      // Omitir si faltan fechas
+      if (!t.fechaInicio || t.fechaInicio.trim() === "" || !t.fechaVencimiento || t.fechaVencimiento.trim() === "") return false
+      
+      const pasaProyecto = proyectoFiltrado === 'Todos' || t.proyecto === proyectoFiltrado
+      const pasaEtiqueta = etiquetaFiltrada === 'Todas' || t.etiqueta === etiquetaFiltrada
+      
+      if (!pasaProyecto || !pasaEtiqueta) return false
+
+      // FILTRO DE TIEMPO: Comprobar si la tarea se cruza con nuestra ventana de tiempo actual
+      try {
+        const tStart = parseISO(t.fechaInicio)
+        let tEnd = parseISO(t.fechaVencimiento)
+        if (tEnd <= tStart) tEnd = addDays(tStart, 1)
+
+        // Se solapan si el inicio de la tarea es anterior o igual al fin del Gantt 
+        // y el fin de la tarea es posterior o igual al inicio del Gantt.
+        return tStart <= maxDate && tEnd >= minDate
+      } catch (e) {
+        return false
+      }
+    })
+  }, [tareasData, proyectoFiltrado, etiquetaFiltrada, minDate, maxDate])
+
   const navegarTimeline = (direccion) => {
     const delta = vistaMode === 'semana' ? 7 : vistaMode === 'mes' ? 30 : 90
     setFechaInicioVista(prev => addDays(prev, direccion * delta))
@@ -71,8 +87,8 @@ export default function Gantt() {
 
   const todayPosition = useMemo(() => {
     const today = new Date()
-    const maxDate = addDays(minDate, totalDays)
-    if (today >= minDate && today <= maxDate) {
+    const maxDateWithDays = addDays(minDate, totalDays)
+    if (today >= minDate && today <= maxDateWithDays) {
       return getPercentagePosition(today)
     }
     return null
@@ -196,7 +212,6 @@ export default function Gantt() {
               className="bg-transparent text-xs font-semibold text-slate-200 outline-none cursor-pointer"
             >
               <option value="Todos" className="bg-surface-700">Todos</option>
-              {/* MODIFICADO: Extrae de forma segura el nombre del objeto proyecto */}
               {proyectosData.map((p, index) => {
                 const nombre = typeof p === 'string' ? p : p.nombre;
                 return <option key={nombre || index} value={nombre} className="bg-surface-700">{nombre}</option>
@@ -296,7 +311,7 @@ export default function Gantt() {
 
             <div className="divide-y divide-white/[0.04]">
               {validTareas.length === 0 ? (
-                <div className="p-12 text-center text-sm text-slate-500">No se encontraron tareas con rango de fechas para mostrar.</div>
+                <div className="p-12 text-center text-sm text-slate-500">No se encontraron tareas en el rango de fechas actual.</div>
               ) : (
                 <>
                   {tareasActivas.map(tarea => renderFilaGantt(tarea))}
