@@ -4,7 +4,7 @@ import { format } from 'date-fns'
 const today = format(new Date(), 'yyyy-MM-dd')
 
 const MOCK_DATA = {
-  proyectos: ['Demo Project'],
+  proyectos: [{ nombre: 'Demo Project', tipo: 'Proyecto' }],
   tareas: [
     {
       id: '1',
@@ -50,6 +50,10 @@ function init() {
     try {
       const parsed = JSON.parse(local)
       if (!parsed.historias) parsed.historias = []
+      // MIGRACIÓN DE DATOS EXISTENTES: Convierte strings antiguos a objetos con tipo por defecto
+      if (parsed.proyectos) {
+        parsed.proyectos = parsed.proyectos.map(p => typeof p === 'string' ? { nombre: p, tipo: 'Proyecto' } : p)
+      }
       return parsed
     } catch (e) {
       return MOCK_DATA
@@ -62,20 +66,10 @@ function reducer(state, action) {
   switch (action.type) {
     case 'ADD_PROJECT':
       return { ...state, proyectos: [...state.proyectos, action.payload] }
-    case 'UPDATE_PROJECT': {
-      const { oldName, newName } = action.payload
-      return {
-        ...state,
-        proyectos: state.proyectos.map(p => p === oldName ? newName : p),
-        tareas: state.tareas.map(t => t.proyecto === oldName ? { ...t, proyecto: newName } : t),
-        bugs: (state.bugs || []).map(b => b.proyecto === oldName ? { ...b, proyecto: newName } : b),
-        historias: (state.historias || []).map(h => h.proyecto === oldName ? { ...h, proyecto: newName } : h)
-      }
-    }
     case 'DELETE_PROJECT':
       return { 
         ...state, 
-        proyectos: state.proyectos.filter(p => p !== action.payload),
+        proyectos: state.proyectos.filter(p => p.nombre !== action.payload),
         tareas: state.tareas.filter(t => t.proyecto !== action.payload),
         bugs: (state.bugs || []).filter(b => b.proyecto !== action.payload),
         historias: (state.historias || []).filter(h => h.proyecto !== action.payload)
@@ -183,7 +177,7 @@ export function getProjectColor(project, proyectosArray = []) {
     { text: 'text-amber-400', border: 'border-amber-500/30', bg: 'bg-amber-500/10', accent: '#fbbf24' },
   ]
   
-  const index = proyectosArray.indexOf(project)
+  const index = proyectosArray.findIndex(p => (typeof p === 'string' ? p : p.nombre) === project)
   const colorIndex = index !== -1 ? index % fallbackColors.length : 0
   
   return fallbackColors[colorIndex]
