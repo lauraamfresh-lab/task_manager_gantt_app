@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { format, parseISO, isPast, isToday, differenceInDays } from 'date-fns'
-import { Plus, ExternalLink, Trash2, Pencil, ChevronDown, ChevronRight, CheckSquare, Square, FileText, Sun } from 'lucide-react'
+import { Plus, ExternalLink, Trash2, Pencil, ChevronDown, ChevronRight, CheckSquare, Square, FileText, Sun, ArrowUp, ArrowDown } from 'lucide-react'
 import { useTask, ESTADOS, ESTADO_CONFIG, getProjectColor } from '../context/TaskContext'
 import TaskModal from '../components/TaskModal'
 import ProjectModal from '../components/ProjectModal'
@@ -227,8 +227,9 @@ function TareaRow({ tarea, i, tareasLength, onEdit }) {
   )
 }
 
-function ProyectoGroup({ proyecto, tareas, onAdd, onEdit }) {
-  const { dispatch } = useTask()
+function ProyectoGroup({ proyecto, tareas, index, totalProyectos, onAdd, onEdit, onEditProject }) {
+  const { state, dispatch } = useTask()
+  const col = getProjectColor(proyecto, state.proyectos)
   const [isCollapsed, setIsCollapsed] = useState(true)
   const [showCompleted, setShowCompleted] = useState(false)
 
@@ -286,21 +287,43 @@ function ProyectoGroup({ proyecto, tareas, onAdd, onEdit }) {
           <div className="text-slate-400">
             {isCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
           </div>
-          {/* MODIFICADO: Ahora el punto/bolita siempre es verde esmeralda */}
-          <span className="w-3 h-3 rounded-full bg-emerald-400" />
+          <span className={`w-3 h-3 rounded-full`} style={{ backgroundColor: col.accent }} />
           <h3 className="font-display font-bold text-slate-200 text-base">{proyecto}</h3>
           <span className="text-xs font-mono text-slate-500 bg-white/5 px-2 py-0.5 rounded-md">
             {tareasActivas.length} activas {tareasCompletadas.length > 0 && `· ${tareasCompletadas.length} hechas`}
           </span>
         </div>
         
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
           <button 
-            onClick={(e) => { e.stopPropagation(); onAdd(proyecto); }} 
+            onClick={() => dispatch({ type: 'MOVE_PROJECT', payload: { index, direction: 'up' } })} 
+            disabled={index === 0} 
+            className="p-1 text-slate-500 hover:text-slate-300 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+            title="Mover arriba"
+          >
+            <ArrowUp size={16} />
+          </button>
+          <button 
+            onClick={() => dispatch({ type: 'MOVE_PROJECT', payload: { index, direction: 'down' } })} 
+            disabled={index === totalProyectos - 1} 
+            className="p-1 text-slate-500 hover:text-slate-300 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+            title="Mover abajo"
+          >
+            <ArrowDown size={16} />
+          </button>
+          <button 
+            onClick={() => onAdd(proyecto)} 
             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-surface-600 transition-colors"
             title="Añadir tarea"
           >
             <Plus size={16} strokeWidth={2.5} />
+          </button>
+          <button 
+            onClick={() => onEditProject(proyecto)} 
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-surface-600 transition-colors"
+            title="Editar proyecto/operativa"
+          >
+            <Pencil size={16} strokeWidth={2.5} />
           </button>
           <button 
             onClick={handleDeleteProject} 
@@ -374,29 +397,39 @@ function ProyectoGroup({ proyecto, tareas, onAdd, onEdit }) {
 export default function ProyectosYTareas() {
   const { state, dispatch } = useTask()
   const [projectModal, setProjectModal] = useState(false)
+  const [editProjectObj, setEditProjectObj] = useState(null)
   const [addModal, setAddModal] = useState(false)
   const [modal, setModal] = useState(null)
 
   const grouped = {}
-  if (state?.proyectos) state.proyectos.forEach(p => { grouped[p] = [] })
-  if (state?.tareas) state.tareas.forEach(t => { if (grouped[t.proyecto]) grouped[t.proyecto].push(t) })
+  state.proyectos.forEach(p => { grouped[p.nombre] = [] })
+  state.tareas.forEach(t => { if (grouped[t.proyecto]) grouped[t.proyecto].push(t) })
 
   const interceptarNuevaTarea = (nuevaTarea) => {
     if (nuevaTarea.historia && nuevaTarea.historia.trim() !== '') {
-      dispatch({
-        type: 'ADD_STORY',
-        payload: {
-          proyecto: nuevaTarea.proyecto,
-          titulo: `Req: ${nuevaTarea.titulo}`,
-          descripcion: nuevaTarea.historia
-        }
-      })
+      const projObj = state.proyectos.find(p => p.nombre === nuevaTarea.proyecto)
+      if (projObj && projObj.tipo === 'Proyecto') {
+        dispatch({
+          type: 'ADD_STORY',
+          payload: {
+            proyecto: nuevaTarea.proyecto,
+            titulo: `Req: ${nuevaTarea.titulo}`,
+            descripcion: nuevaTarea.historia
+          }
+        })
+      }
     }
   }
 
+  const abrirEdicionProyecto = (nombreProyecto) => {
+    const target = state.proyectos.find(p => p.nombre === nombreProyecto)
+    setEditProjectObj(target)
+    setProjectModal(true)
+  }
+
   return (
-    <div className="p-8 animate-fade-in max-w-7xl mx-auto">
-      <div className="flex items-center justify-between gap-4 mb-8">
+    <div className="p-8 animate-fade-in max-w-7xl mx-auto space-y-10">
+      <div className="flex items-center justify-between gap-4 mb-4">
         <div>
           <h1 className="text-3xl font-display font-bold text-slate-100 tracking-tight">Proyectos y Planificación</h1>
           <p className="text-sm text-slate-500 mt-1">
@@ -413,14 +446,59 @@ export default function ProyectosYTareas() {
         </div>
       </div>
 
-      <div>
-        {Object.entries(grouped).map(([proyecto, tareas]) => (
-          <ProyectoGroup key={proyecto} proyecto={proyecto} tareas={tareas} onAdd={(p) => setModal({ proyecto: p })} onEdit={(t) => setModal({ editTask: t })} />
-        ))}
+      <div className="space-y-10">
+        <div className="space-y-4">
+          <h2 className="text-xl font-display font-bold text-slate-300 border-b border-white/10 pb-2">📁 Proyectos</h2>
+          {state.proyectos.map((p, index) => {
+            if (p.tipo !== 'Proyecto') return null;
+            return (
+              <ProyectoGroup 
+                key={p.nombre} 
+                proyecto={p.nombre} 
+                tareas={grouped[p.nombre] || []} 
+                index={index}
+                totalProyectos={state.proyectos.length}
+                onAdd={(proj) => setModal({ proyecto: proj })} 
+                onEdit={(t) => setModal({ editTask: t })} 
+                onEditProject={abrirEdicionProyecto}
+              />
+            )
+          })}
+          {state.proyectos.filter(p => p.tipo === 'Proyecto').length === 0 && (
+            <p className="text-xs text-slate-500 italic pl-2">No hay elementos en la categoría Proyectos.</p>
+          )}
+        </div>
+
+        <div className="space-y-4">
+          <h2 className="text-xl font-display font-bold text-slate-300 border-b border-white/10 pb-2">⚙️ Operativa</h2>
+          {state.proyectos.map((p, index) => {
+            if (p.tipo !== 'Operativa') return null;
+            return (
+              <ProyectoGroup 
+                key={p.nombre} 
+                proyecto={p.nombre} 
+                tareas={grouped[p.nombre] || []} 
+                index={index}
+                totalProyectos={state.proyectos.length}
+                onAdd={(proj) => setModal({ proyecto: proj })} 
+                onEdit={(t) => setModal({ editTask: t })} 
+                onEditProject={abrirEdicionProyecto}
+              />
+            )
+          })}
+          {state.proyectos.filter(p => p.tipo === 'Operativa').length === 0 && (
+            <p className="text-xs text-slate-500 italic pl-2">No hay elementos en la categoría Operativa.</p>
+          )}
+        </div>
       </div>
 
       {addModal && <TaskModal onClose={() => setAddModal(false)} onSave={interceptarNuevaTarea} />}
-      {projectModal && <ProjectModal onClose={() => setProjectModal(false)} />}
+      {projectModal && (
+        <ProjectModal 
+          onClose={() => { setProjectModal(false); setEditProjectObj(null); }} 
+          editProject={editProjectObj} 
+        />
+      )}
       {modal && !modal.editTask && <TaskModal initialProyecto={modal.proyecto} onClose={() => setModal(null)} onSave={interceptarNuevaTarea} />}
       {modal?.editTask && <TaskModal editTask={modal.editTask} onClose={() => setModal(null)} />}
     </div>
