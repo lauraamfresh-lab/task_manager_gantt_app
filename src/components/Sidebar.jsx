@@ -1,5 +1,5 @@
 import React from 'react'
-import { Sun, LayoutList, BarChart2, Zap, BookOpen } from 'lucide-react' // ◄ Añadimos BookOpen aquí
+import { Sun, LayoutList, BarChart2, Zap, BookOpen, ClipboardList } from 'lucide-react'
 import { LayoutDashboard, FolderKanban, Calendar, Bug } from 'lucide-react'
 
 const VIEWS = [
@@ -7,7 +7,8 @@ const VIEWS = [
   { id: 'proyectos', label: 'Proyectos y Tareas',   icon: LayoutList },
   { id: 'gantt',     label: 'Gantt',                icon: BarChart2 },
   { id: 'bugs',      label: 'Bugs / Errores',       icon: Bug },
-  { id: 'historias', label: 'Historias / Reqs',     icon: BookOpen }, // ◄ NUEVA LÍNEA DE HISTORIAS
+  { id: 'historias', label: 'Historias / Reqs',     icon: BookOpen },
+  { id: 'reports',   label: 'Informes',             icon: ClipboardList },
 ]
 
 export default function Sidebar({ activeView, onChangeView }) {

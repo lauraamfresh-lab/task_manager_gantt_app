@@ -38,7 +38,15 @@ const MOCK_DATA = {
   ],
   bugs: [],
   historias: [
-    { id: 'h-1', proyecto: 'Demo Project', titulo: 'Visualización de márgenes netos', descripcion: 'Como Director Financiero quiero ver el margen neto filtrado por región para tomar decisiones de presupuesto.', completada: false }
+    {
+      id: 'h-1',
+      proyecto: 'Demo Project',
+      titulo: 'Visualización de márgenes netos',
+      descripcion: 'Como Director Financiero quiero ver el margen neto filtrado por región para tomar decisiones de presupuesto.',
+      completada: false,
+      fechaLimite: '',
+      responsable: 'Laura'
+    }
   ]
 }
 
@@ -50,10 +58,19 @@ function init() {
     try {
       const parsed = JSON.parse(local)
       if (!parsed.historias) parsed.historias = []
-      
+
+      // MIGRACIÓN: Añade campos nuevos a historias existentes que no los tengan
+      parsed.historias = parsed.historias.map(h => ({
+        fechaLimite: '',
+        responsable: '',
+        ...h
+      }))
+
       // MIGRACIÓN DE SEGURIDAD: Transforma los strings antiguos a objetos con categoría por defecto
       if (parsed.proyectos) {
-        parsed.proyectos = parsed.proyectos.map(p => typeof p === 'string' ? { nombre: p, tipo: 'Proyecto' } : p)
+        parsed.proyectos = parsed.proyectos.map(p =>
+          typeof p === 'string' ? { nombre: p, tipo: 'Proyecto' } : p
+        )
       }
       return parsed
     } catch (e) {
@@ -78,8 +95,8 @@ function reducer(state, action) {
       }
     }
     case 'DELETE_PROJECT':
-      return { 
-        ...state, 
+      return {
+        ...state,
         proyectos: state.proyectos.filter(p => p.nombre !== action.payload),
         tareas: state.tareas.filter(t => t.proyecto !== action.payload),
         bugs: (state.bugs || []).filter(b => b.proyecto !== action.payload),
@@ -88,7 +105,7 @@ function reducer(state, action) {
     case 'MOVE_PROJECT': {
       const { index, direction } = action.payload;
       const nuevosProyectos = [...state.proyectos];
-      
+
       if (direction === 'up' && index > 0) {
         [nuevosProyectos[index - 1], nuevosProyectos[index]] = [nuevosProyectos[index], nuevosProyectos[index - 1]];
       } else if (direction === 'down' && index < nuevosProyectos.length - 1) {
@@ -111,7 +128,18 @@ function reducer(state, action) {
     case 'DELETE_BUG':
       return { ...state, bugs: (state.bugs || []).filter(b => b.id !== action.payload) }
     case 'ADD_STORY':
-      return { ...state, historias: [...(state.historias || []), { ...action.payload, id: Date.now().toString() }] }
+      return {
+        ...state,
+        historias: [
+          ...(state.historias || []),
+          {
+            fechaLimite: '',
+            responsable: '',
+            ...action.payload,
+            id: Date.now().toString()
+          }
+        ]
+      }
     case 'UPDATE_STORY':
       return { ...state, historias: (state.historias || []).map(h => h.id === action.payload.id ? { ...h, ...action.payload } : h) }
     case 'DELETE_STORY':
@@ -119,7 +147,7 @@ function reducer(state, action) {
     case 'TOGGLE_STORY_COMPLETION':
       return {
         ...state,
-        historias: (state.historias || []).map(h => 
+        historias: (state.historias || []).map(h =>
           h.id === action.payload ? { ...h, completada: !h.completada } : h
         )
       }
@@ -165,7 +193,7 @@ export const ESTADO_CONFIG = {
 
 export function getProjectColor(project, proyectosArray = []) {
   const normalized = project?.toUpperCase().trim() || ''
-  
+
   if (normalized.includes('TES1')) {
     return { accent: '#22d3ee', text: 'text-cyan-400', border: 'border-cyan-500/30', bg: 'bg-cyan-500/10' }
   }
@@ -175,11 +203,10 @@ export function getProjectColor(project, proyectosArray = []) {
 
   const fallbackColors = [
     { text: 'text-emerald-400', border: 'border-emerald-500/30', bg: 'bg-emerald-500/10', accent: '#34d399' },
-    
   ]
-  
+
   const index = proyectosArray.findIndex(p => (typeof p === 'string' ? p : p.nombre) === project)
   const colorIndex = index !== -1 ? index % fallbackColors.length : 0
-  
+
   return fallbackColors[colorIndex]
 }

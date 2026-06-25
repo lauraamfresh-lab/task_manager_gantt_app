@@ -5,7 +5,8 @@ import MiDia from './views/MiDia'
 import ProyectosYTareas from './views/ProyectosYTareas'
 import Gantt from './views/Gantt'
 import BugsTracker from './views/BugsTracker'
-import Historias from './views/Historias' // ◄ Importamos la nueva vista
+import Historias from './views/Historias'
+import Reports from './views/Reports'
 
 function Layout() {
   const [view, setView] = useState('midia')
@@ -15,7 +16,8 @@ function Layout() {
     proyectos: <ProyectosYTareas />,
     gantt: <Gantt />,
     bugs: <BugsTracker />,
-    historias: <Historias />, // ◄ Añadimos la renderización de Historias
+    historias: <Historias />,
+    reports: <Reports />,
   }
 
   return (
