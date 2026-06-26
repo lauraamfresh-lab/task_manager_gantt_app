@@ -320,6 +320,8 @@ function RequisitoRow({ h, tareas }) {
 function ProjectReportCard({ proyecto, historias, tareas }) {
   const [collapsed, setCollapsed] = useState(false)
   const [showGantt, setShowGantt] = useState(false)
+  const [ocultarCompletados, setOcultarCompletados] = useState(false)
+  const [sortBy, setSortBy] = useState(null) // null, 'estado', 'fecha', 'responsable'
   const { state } = useTask()
   const col = getProjectColor(proyecto, state.proyectos)
 
@@ -334,6 +336,29 @@ function ProjectReportCard({ proyecto, historias, tareas }) {
   const vencidas = historias.filter(h =>
     h.fechaLimite && !h.completada && new Date(h.fechaLimite) < new Date()
   ).length
+
+  const historiasProcesadas = useMemo(() => {
+    let list = [...historias]
+    if (ocultarCompletados) {
+      list = list.filter(h => !h.completada)
+    }
+    if (sortBy === 'estado') {
+      list.sort((a, b) => (a.completada === b.completada ? 0 : a.completada ? 1 : -1))
+    } else if (sortBy === 'fecha') {
+      list.sort((a, b) => {
+        if (!a.fechaLimite) return 1
+        if (!b.fechaLimite) return -1
+        return new Date(a.fechaLimite) - new Date(b.fechaLimite)
+      })
+    } else if (sortBy === 'responsable') {
+      list.sort((a, b) => {
+        const respA = a.responsable || 'Sin asignar'
+        const respB = b.responsable || 'Sin asignar'
+        return respA.localeCompare(respB)
+      })
+    }
+    return list
+  }, [historias, ocultarCompletados, sortBy])
 
   return (
     <div className="bg-surface-700/30 border border-white/5 rounded-2xl overflow-hidden shadow-xl">
@@ -358,6 +383,20 @@ function ProjectReportCard({ proyecto, historias, tareas }) {
 
         {/* KPI chips */}
         <div className="flex items-center gap-3 flex-wrap" onClick={e => e.stopPropagation()}>
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              setOcultarCompletados(!ocultarCompletados)
+            }}
+            className={`text-[10px] font-semibold px-2 py-1 rounded-lg border transition-all ${
+              ocultarCompletados
+                ? 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                : 'bg-white/5 text-slate-400 border-white/10 hover:bg-white/10'
+            }`}
+            title={ocultarCompletados ? "Mostrar requerimientos completados" : "Ocultar requerimientos completados"}
+          >
+            {ocultarCompletados ? 'Mostrar Completados' : 'Ocultar Completados'}
+          </button>
           <div className="text-center">
             <p className="text-[10px] text-slate-500 uppercase tracking-wider">Reqs</p>
             <p className="text-sm font-bold text-slate-200 font-mono">{completadas}/{total}</p>
@@ -390,15 +429,34 @@ function ProjectReportCard({ proyecto, historias, tareas }) {
           ) : (
             <div className="rounded-xl border border-white/5 overflow-hidden bg-surface-700/20">
               {/* Table header */}
-              <div className="grid grid-cols-[1fr_120px_110px_90px] px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500 bg-surface-800/40 border-b border-white/5">
+              <div className="grid grid-cols-[1fr_120px_110px_90px] px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500 bg-surface-800/40 border-b border-white/5 select-none">
                 <div>Requerimiento</div>
-                <div>Estado</div>
-                <div className="flex items-center gap-1"><Calendar size={9} /> Fecha Límite</div>
-                <div className="flex items-center gap-1"><User size={9} /> Responsable</div>
+                <div 
+                  className={`cursor-pointer hover:text-slate-300 transition-colors flex items-center gap-1 ${sortBy === 'estado' ? 'text-accent-violet font-bold' : ''}`}
+                  onClick={() => setSortBy(sortBy === 'estado' ? null : 'estado')}
+                >
+                  Estado {sortBy === 'estado' && '↕'}
+                </div>
+                <div 
+                  className={`cursor-pointer hover:text-slate-300 transition-colors flex items-center gap-1 ${sortBy === 'fecha' ? 'text-accent-violet font-bold' : ''}`}
+                  onClick={() => setSortBy(sortBy === 'fecha' ? null : 'fecha')}
+                >
+                  <Calendar size={9} /> Fecha Límite {sortBy === 'fecha' && '↕'}
+                </div>
+                <div 
+                  className={`cursor-pointer hover:text-slate-300 transition-colors flex items-center gap-1 ${sortBy === 'responsable' ? 'text-accent-violet font-bold' : ''}`}
+                  onClick={() => setSortBy(sortBy === 'responsable' ? null : 'responsable')}
+                >
+                  <User size={9} /> Responsable {sortBy === 'responsable' && '↕'}
+                </div>
               </div>
-              {historias.map(h => (
-                <RequisitoRow key={h.id} h={h} tareas={tareas} />
-              ))}
+              {historiasProcesadas.length === 0 ? (
+                <p className="text-xs text-slate-500 italic px-2 py-4 text-center">No hay requerimientos que coincidan con los filtros.</p>
+              ) : (
+                historiasProcesadas.map(h => (
+                  <RequisitoRow key={h.id} h={h} tareas={tareas} />
+                ))
+              )}
             </div>
           )}
 

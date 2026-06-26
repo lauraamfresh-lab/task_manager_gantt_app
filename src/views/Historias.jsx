@@ -1,8 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { BookOpen, Plus, Trash2, ChevronDown, ChevronRight, PlusCircle, Pencil, Check, Circle, ArrowUp, ArrowDown, Calendar, User } from 'lucide-react'
+import { BookOpen, Plus, Trash2, ChevronDown, ChevronRight, PlusCircle, Pencil, Check, Circle, ArrowUp, ArrowDown, Calendar, User, Clock } from 'lucide-react'
 import { useTask, getProjectColor, ETIQUETAS_OPCIONES } from '../context/TaskContext'
+import { addDays, format, parseISO } from 'date-fns'
 
 function HistoriaItem({ h, proyecto, dispatch }) {
+  const { state } = useTask()
+  const tareas = state?.tareas || []
+
   const [isExpanded, setIsExpanded] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
 
@@ -10,6 +14,7 @@ function HistoriaItem({ h, proyecto, dispatch }) {
   const [editDescripcion, setEditDescripcion] = useState(h.descripcion)
   const [editFechaLimite, setEditFechaLimite] = useState(h.fechaLimite || '')
   const [editResponsable, setEditResponsable] = useState(h.responsable || '')
+  const [editDiasDesarrollo, setEditDiasDesarrollo] = useState(h.diasDesarrollo ?? '')
   const textareaEditRef = useRef(null)
 
   useEffect(() => {
@@ -28,7 +33,8 @@ function HistoriaItem({ h, proyecto, dispatch }) {
         titulo: editTitulo.trim(),
         descripcion: editDescripcion.trim(),
         fechaLimite: editFechaLimite,
-        responsable: editResponsable
+        responsable: editResponsable,
+        diasDesarrollo: editDiasDesarrollo !== '' ? parseInt(editDiasDesarrollo, 10) : null
       }
     })
     setIsEditing(false)
@@ -40,21 +46,36 @@ function HistoriaItem({ h, proyecto, dispatch }) {
   }
 
   const enviarATareas = () => {
+    // Bug 1 fix: dedup by historiaId
+    const yaExiste = tareas.some(t => t.historiaId === h.id)
+    if (yaExiste) {
+      alert('Ya existe una tarea vinculada a este requerimiento. Puedes editarla desde Proyectos y Tareas.')
+      return
+    }
     const confirmacion = window.confirm(`¿Quieres crear una tarea en el proyecto "${proyecto}" basada en este requerimiento?`)
     if (!confirmacion) return
+
+    // Bug 6 fix: compute fechaInicio from fechaLimite - diasDesarrollo
+    let fechaInicio = format(new Date(), 'yyyy-MM-dd')
+    if (h.fechaLimite && h.diasDesarrollo > 0) {
+      try {
+        fechaInicio = format(addDays(parseISO(h.fechaLimite), -h.diasDesarrollo), 'yyyy-MM-dd')
+      } catch { /* keep today */ }
+    }
 
     dispatch({
       type: 'ADD_TASK',
       payload: {
-        id: `task-${Date.now()}`,
         titulo: h.titulo,
         proyecto: proyecto,
         estado: 'To Do',
         etiqueta: h.responsable || 'Sin asignar',
         historia: h.descripcion,
+        historiaId: h.id,   // Bug 2 fix: stamp foreign key
         checklist: [],
         notas: '',
-        fechaInicio: new Date().toISOString().split('T')[0],
+        enMiDia: false,
+        fechaInicio,
         fechaVencimiento: h.fechaLimite || ''
       }
     })
@@ -78,7 +99,7 @@ function HistoriaItem({ h, proyecto, dispatch }) {
             onChange={e => setEditDescripcion(e.target.value)}
             className="w-full bg-surface-600 text-xs text-slate-300 rounded p-2 border border-white/10 focus:outline-none resize-none overflow-hidden min-h-[48px]"
           />
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <div className="space-y-1">
               <label className="text-[10px] text-slate-400 flex items-center gap-1"><Calendar size={10} /> Fecha Límite</label>
               <input
@@ -100,6 +121,16 @@ function HistoriaItem({ h, proyecto, dispatch }) {
                   <option key={opt} value={opt} className="bg-surface-700">{opt}</option>
                 ))}
               </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] text-slate-400 flex items-center gap-1"><Clock size={10} /> Días Des.</label>
+              <input
+                type="number"
+                min="0"
+                value={editDiasDesarrollo}
+                onChange={e => setEditDiasDesarrollo(e.target.value)}
+                className="w-full bg-surface-600 text-xs text-slate-200 rounded px-2 py-1 border border-white/10 focus:outline-none"
+              />
             </div>
           </div>
         </div>
@@ -139,6 +170,11 @@ function HistoriaItem({ h, proyecto, dispatch }) {
             {h.fechaLimite && (
               <span className="text-[10px] text-slate-400 flex items-center gap-1 bg-white/5 px-1.5 py-0.5 rounded">
                 <Calendar size={9} /> {h.fechaLimite}
+              </span>
+            )}
+            {h.diasDesarrollo !== undefined && h.diasDesarrollo !== null && h.diasDesarrollo !== '' && (
+              <span className="text-[10px] text-slate-400 flex items-center gap-1 bg-white/5 px-1.5 py-0.5 rounded">
+                <Clock size={9} /> {h.diasDesarrollo} días
               </span>
             )}
           </div>
@@ -259,6 +295,7 @@ export default function Historias() {
   const [proyecto, setProyecto] = useState('')
   const [fechaLimite, setFechaLimite] = useState('')
   const [responsable, setResponsable] = useState('')
+  const [diasDesarrollo, setDiasDesarrollo] = useState('')
 
   const textareaCreateRef = useRef(null)
 
@@ -300,13 +337,15 @@ export default function Historias() {
         descripcion: descripcion.trim(),
         completada: false,
         fechaLimite,
-        responsable
+        responsable,
+        diasDesarrollo: diasDesarrollo !== '' ? parseInt(diasDesarrollo, 10) : null
       }
     })
     setTitulo('')
     setDescripcion('')
     setFechaLimite('')
     setResponsable('')
+    setDiasDesarrollo('')
   }
 
   return (
@@ -351,7 +390,7 @@ export default function Historias() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-1.5">
             <label className="text-xs text-slate-400 font-medium flex items-center gap-1"><Calendar size={10} /> Fecha Límite <span className="text-[10px] normal-case font-normal text-slate-500">(Opcional)</span></label>
             <input
@@ -373,6 +412,17 @@ export default function Historias() {
                 <option key={opt} value={opt} className="bg-surface-700">{opt}</option>
               ))}
             </select>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs text-slate-400 font-medium flex items-center gap-1"><Clock size={10} /> Días de Desarrollo</label>
+            <input
+              type="number"
+              min="0"
+              placeholder="Ej: 5"
+              value={diasDesarrollo}
+              onChange={e => setDiasDesarrollo(e.target.value)}
+              className="w-full bg-surface-600 border border-white/10 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-accent-violet/60"
+            />
           </div>
         </div>
 

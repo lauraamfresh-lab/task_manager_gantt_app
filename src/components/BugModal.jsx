@@ -7,7 +7,7 @@ export default function BugModal({ onClose, editBug }) {
   
   const [titulo, setTitulo] = useState(editBug ? editBug.titulo : '')
   const [descripcion, setDescripcion] = useState(editBug ? editBug.descripcion : '')
-  const [proyecto, setProyecto] = useState(editBug ? editBug.proyecto : state.proyectos[0] || '')
+  const [proyecto, setProyecto] = useState(editBug ? editBug.proyecto : state.proyectos[0]?.nombre || '')
   const [prioridad, setPrioridad] = useState(editBug ? editBug.prioridad : 'Media')
   const [estado, setEstado] = useState(editBug ? editBug.estado : 'Abierto')
   // 1. Añadimos el estado para el reportero
@@ -101,7 +101,7 @@ export default function BugModal({ onClose, editBug }) {
           <div>
             <label className="block text-xs font-medium text-slate-400 mb-1.5">Proyecto afectado</label>
             <select value={proyecto} onChange={e => setProyecto(e.target.value)} className={inputCls}>
-              {state.proyectos.map(p => <option key={p} value={p} className="bg-surface-700">{p}</option>)}
+              {state.proyectos.map(p => <option key={p.nombre} value={p.nombre} className="bg-surface-700">{p.nombre}</option>)}
             </select>
           </div>
 

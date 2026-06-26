@@ -63,7 +63,14 @@ function init() {
       parsed.historias = parsed.historias.map(h => ({
         fechaLimite: '',
         responsable: '',
+        diasDesarrollo: null,
         ...h
+      }))
+
+      // MIGRACIÓN: añade historiaId a tareas existentes
+      parsed.tareas = (parsed.tareas || []).map(t => ({
+        historiaId: null,
+        ...t
       }))
 
       // MIGRACIÓN DE SEGURIDAD: Transforma los strings antiguos a objetos con categoría por defecto
@@ -114,13 +121,44 @@ function reducer(state, action) {
       return { ...state, proyectos: nuevosProyectos };
     }
     case 'ADD_TASK':
-      return { ...state, tareas: [...state.tareas, { ...action.payload, id: Date.now().toString() }] }
-    case 'UPDATE_TASK':
-      return { ...state, tareas: state.tareas.map(t => t.id === action.payload.id ? { ...t, ...action.payload } : t) }
+      return { ...state, tareas: [...state.tareas, { historiaId: null, ...action.payload, id: Date.now().toString() }] }
+    case 'UPDATE_TASK': {
+      const updatedTareas = state.tareas.map(t => t.id === action.payload.id ? { ...t, ...action.payload } : t)
+      const updatedTask = updatedTareas.find(t => t.id === action.payload.id)
+      let syncedHistorias = state.historias || []
+      if (updatedTask?.historiaId) {
+        syncedHistorias = syncedHistorias.map(h => {
+          if (h.id !== updatedTask.historiaId) return h
+          return {
+            ...h,
+            completada: updatedTask.estado === 'Done',
+            responsable: updatedTask.etiqueta || '',
+            fechaLimite: updatedTask.fechaVencimiento || ''
+          }
+        })
+      }
+      return { ...state, tareas: updatedTareas, historias: syncedHistorias }
+    }
     case 'DELETE_TASK':
       return { ...state, tareas: state.tareas.filter(t => t.id !== action.payload) }
-    case 'UPDATE_ESTADO':
-      return { ...state, tareas: state.tareas.map(t => t.id === action.payload.id ? { ...t, estado: action.payload.estado } : t) }
+    case 'UPDATE_ESTADO': {
+      const updatedTareas = state.tareas.map(t => t.id === action.payload.id ? { ...t, estado: action.payload.estado } : t)
+      const updatedTask = updatedTareas.find(t => t.id === action.payload.id)
+      let syncedHistorias = state.historias || []
+      if (updatedTask?.historiaId) {
+        syncedHistorias = syncedHistorias.map(h =>
+          h.id === updatedTask.historiaId 
+            ? { 
+                ...h, 
+                completada: updatedTask.estado === 'Done',
+                responsable: updatedTask.etiqueta || '',
+                fechaLimite: updatedTask.fechaVencimiento || ''
+              } 
+            : h
+        )
+      }
+      return { ...state, tareas: updatedTareas, historias: syncedHistorias }
+    }
     case 'ADD_BUG':
       return { ...state, bugs: [...(state.bugs || []), action.payload] }
     case 'UPDATE_BUG':
@@ -135,22 +173,51 @@ function reducer(state, action) {
           {
             fechaLimite: '',
             responsable: '',
+            diasDesarrollo: null,
             ...action.payload,
             id: Date.now().toString()
           }
         ]
       }
-    case 'UPDATE_STORY':
-      return { ...state, historias: (state.historias || []).map(h => h.id === action.payload.id ? { ...h, ...action.payload } : h) }
+    case 'UPDATE_STORY': {
+      const updatedHistorias = (state.historias || []).map(h => h.id === action.payload.id ? { ...h, ...action.payload } : h)
+      const updatedHistoria = updatedHistorias.find(h => h.id === action.payload.id)
+      let syncedTareas = state.tareas
+      if (updatedHistoria) {
+        syncedTareas = state.tareas.map(t => {
+          if (t.historiaId !== updatedHistoria.id) return t
+          return {
+            ...t,
+            fechaVencimiento: updatedHistoria.fechaLimite || '',
+            etiqueta: updatedHistoria.responsable || 'Sin asignar',
+            estado: updatedHistoria.completada ? 'Done' : (t.estado === 'Done' ? 'To Do' : t.estado)
+          }
+        })
+      }
+      return { ...state, historias: updatedHistorias, tareas: syncedTareas }
+    }
     case 'DELETE_STORY':
       return { ...state, historias: (state.historias || []).filter(h => h.id !== action.payload) }
-    case 'TOGGLE_STORY_COMPLETION':
-      return {
-        ...state,
-        historias: (state.historias || []).map(h =>
-          h.id === action.payload ? { ...h, completada: !h.completada } : h
+    case 'TOGGLE_STORY_COMPLETION': {
+      const updatedHistorias = (state.historias || []).map(h =>
+        h.id === action.payload ? { ...h, completada: !h.completada } : h
+      )
+      const updatedHistoria = updatedHistorias.find(h => h.id === action.payload)
+      let syncedTareas = state.tareas
+      if (updatedHistoria) {
+        syncedTareas = state.tareas.map(t =>
+          t.historiaId === updatedHistoria.id
+            ? { 
+                ...t, 
+                estado: updatedHistoria.completada ? 'Done' : (t.estado === 'Done' ? 'To Do' : t.estado),
+                fechaVencimiento: updatedHistoria.fechaLimite || '',
+                etiqueta: updatedHistoria.responsable || 'Sin asignar'
+              }
+            : t
         )
       }
+      return { ...state, historias: updatedHistorias, tareas: syncedTareas }
+    }
     default:
       return state
   }
