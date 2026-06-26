@@ -125,7 +125,7 @@ export default function Gantt() {
           <div className="flex items-center gap-4 flex-1 min-w-0">
             
             <span 
-              className={`text-[9px] font-bold px-2 py-0.5 rounded border uppercase text-center w-26 shrink-0 truncate tracking-wider ${projColor?.bg || 'bg-slate-500/10'} ${projColor?.border || 'border-slate-500/30'} ${projColor?.text || 'text-slate-400'}`} 
+              className={`text-[9px] font-bold px-2 py-0.5 rounded border uppercase text-center w-32 shrink-0 truncate tracking-wider ${projColor?.bg || 'bg-slate-500/10'} ${projColor?.border || 'border-slate-500/30'} ${projColor?.text || 'text-slate-400'}`} 
               title={tarea.proyecto}
             >
               {tarea.proyecto}
