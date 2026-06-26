@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { BookOpen, Plus, Trash2, ChevronDown, ChevronRight, PlusCircle, Pencil, Check, Circle, ArrowUp, ArrowDown, Calendar, User } from 'lucide-react'
+import { BookOpen, Plus, Trash2, ChevronDown, ChevronRight, PlusCircle, Pencil, Check, Circle, ArrowUp, ArrowDown, Calendar, User, Clock } from 'lucide-react'
 import { useTask, getProjectColor, ETIQUETAS_OPCIONES } from '../context/TaskContext'
+import { addDays, format, parseISO } from 'date-fns'
 
 function HistoriaItem({ h, proyecto, dispatch }) {
   const [isExpanded, setIsExpanded] = useState(false)
@@ -10,6 +11,7 @@ function HistoriaItem({ h, proyecto, dispatch }) {
   const [editDescripcion, setEditDescripcion] = useState(h.descripcion)
   const [editFechaLimite, setEditFechaLimite] = useState(h.fechaLimite || '')
   const [editResponsable, setEditResponsable] = useState(h.responsable || '')
+  const [editDiasDesarrollo, setEditDiasDesarrollo] = useState(h.diasDesarrollo ?? '')
   const textareaEditRef = useRef(null)
 
   useEffect(() => {
@@ -28,7 +30,8 @@ function HistoriaItem({ h, proyecto, dispatch }) {
         titulo: editTitulo.trim(),
         descripcion: editDescripcion.trim(),
         fechaLimite: editFechaLimite,
-        responsable: editResponsable
+        responsable: editResponsable,
+        diasDesarrollo: editDiasDesarrollo !== '' ? parseInt(editDiasDesarrollo, 10) : null
       }
     })
     setIsEditing(false)
@@ -40,26 +43,43 @@ function HistoriaItem({ h, proyecto, dispatch }) {
   }
 
   const enviarATareas = () => {
+    // Bug 1 fix: dedup by historiaId
+    const yaExiste = tareas.some(t => t.historiaId === h.id)
+    if (yaExiste) {
+      alert('Ya existe una tarea vinculada a este requerimiento. Puedes editarla desde Proyectos y Tareas.')
+      return
+    }
     const confirmacion = window.confirm(`¿Quieres crear una tarea en el proyecto "${proyecto}" basada en este requerimiento?`)
     if (!confirmacion) return
+
+    // Bug 6 fix: compute fechaInicio from fechaLimite - diasDesarrollo
+    let fechaInicio = format(new Date(), 'yyyy-MM-dd')
+    if (h.fechaLimite && h.diasDesarrollo > 0) {
+      try {
+        fechaInicio = format(addDays(parseISO(h.fechaLimite), -h.diasDesarrollo), 'yyyy-MM-dd')
+      } catch { /* keep today */ }
+    }
 
     dispatch({
       type: 'ADD_TASK',
       payload: {
-        id: `task-${Date.now()}`,
         titulo: h.titulo,
         proyecto: proyecto,
         estado: 'To Do',
         etiqueta: h.responsable || 'Sin asignar',
         historia: h.descripcion,
+        historiaId: h.id,   // Bug 2 fix: stamp foreign key
         checklist: [],
         notas: '',
-        fechaInicio: new Date().toISOString().split('T')[0],
+        enMiDia: false,
+        fechaInicio,
         fechaVencimiento: h.fechaLimite || ''
       }
     })
     alert('¡Tarea añadida y sincronizada con éxito en Proyectos!')
   }
+
+  const tareaVinculada = tareas.find(t => t.historiaId === h.id)
 
   return (
     <div className={`bg-surface-700/40 border ${h.completada ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-white/5'} rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start gap-4 hover:border-white/10 transition-colors`}>
