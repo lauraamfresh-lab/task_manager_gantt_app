@@ -230,7 +230,7 @@ function HistoriaItem({ h, proyecto, dispatch }) {
 function ProyectoHistoriaGroup({ proyecto, historias, index, totalProyectos }) {
   const { state, dispatch } = useTask()
   const col = getProjectColor(proyecto, state.proyectos)
-  const [isCollapsed, setIsCollapsed] = useState(false)
+  const [isCollapsed, setIsCollapsed] = useState(true)
 
   const historiasCompletadas = historias.filter(h => h.completada).length
 

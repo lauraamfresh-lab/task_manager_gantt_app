@@ -318,7 +318,7 @@ function RequisitoRow({ h, tareas }) {
 // ─── Per-project report card ───
 
 function ProjectReportCard({ proyecto, historias, tareas }) {
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useState(true)
   const [showGantt, setShowGantt] = useState(false)
   const [ocultarCompletados, setOcultarCompletados] = useState(false)
   const [sortBy, setSortBy] = useState(null) // null, 'estado', 'fecha', 'responsable'
