@@ -239,7 +239,7 @@ export function TaskProvider({ children }) {
 
 export function useTask() { return useContext(TaskContext) }
 
-export const ETIQUETAS_OPCIONES = ['Laura', 'Lola', 'Sin asignar']
+export const ETIQUETAS_OPCIONES = ['Laura', 'Lola', 'Mateo']
 export const ETIQUETA_COLORS = {
   'Laura': { accent: '#7c6cfc', bg: 'bg-violet-500/15', text: 'text-violet-400', border: 'border-violet-500/30' },
   'Lola':  { accent: '#22d3ee', bg: 'bg-cyan-500/15',   text: 'text-cyan-400',   border: 'border-cyan-500/30' },
