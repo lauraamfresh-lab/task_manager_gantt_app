@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react'
-import { ClipboardList, ChevronDown, ChevronRight, Check, Circle, Calendar, User, BarChart2, AlertTriangle, CheckCircle2, Clock, Layers, Plus } from 'lucide-react'
+import { ClipboardList, ChevronDown, ChevronRight, Check, Circle, Calendar, User, BarChart2, AlertTriangle, Clock, Layers, Plus } from 'lucide-react'
 import { format, parseISO, differenceInDays, addDays, startOfWeek } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { useTask, getProjectColor, ESTADO_CONFIG, getEtiquetaColor } from '../context/TaskContext'
@@ -78,7 +78,6 @@ function MiniGantt({ tareas, proyectosData }) {
 
     const cfg = ESTADO_CONFIG[tarea.estado] || ESTADO_CONFIG['To Do']
     const tagColor = getEtiquetaColor(tarea.etiqueta)
-    const projColor = getProjectColor(tarea.proyecto, proyectosData)
 
     return (
       <div key={tarea.id} className="grid grid-cols-[300px_1fr] items-center hover:bg-white/[0.02] transition-colors min-h-[48px] py-1.5 relative z-10 border-b border-white/[0.02]">
@@ -225,7 +224,7 @@ function MiniGantt({ tareas, proyectosData }) {
 
 // ─── Requirement row ───
 
-function RequisitoRow({ h, tareas }) {
+function RequisitoRow({ h, tareas, sprints, onDragStart }) {
   const [expanded, setExpanded] = useState(false)
 
   const tareasVinculadas = tareas.filter(t =>
@@ -293,121 +292,55 @@ function RequisitoRow({ h, tareas }) {
       </div>
 
       {expanded && h.descripcion && (
-        <div className="px-12 pb-3 animate-fade-in">
+        <div className="px-12 pb-4 animate-fade-in space-y-3">
           <p className="text-xs text-slate-400 leading-relaxed whitespace-pre-wrap bg-surface-800/40 rounded-lg p-3 border border-white/5">
             {h.descripcion}
           </p>
+          
           {tareasVinculadas.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {tareasVinculadas.map(t => {
-                const cfg = ESTADO_CONFIG[t.estado] || ESTADO_CONFIG['To Do']
-                return (
-                  <span key={t.id} className={`text-[10px] px-2 py-0.5 rounded border ${cfg.bg} ${cfg.color} ${cfg.border}`}>
-                    {t.titulo}
-                  </span>
-                )
-              })}
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider pl-1">
+                Tareas vinculadas (Arrastra para planificar):
+              </p>
+              <div className="flex flex-col gap-1.5 max-w-2xl">
+                {tareasVinculadas.map(t => {
+                  const cfg = ESTADO_CONFIG[t.estado] || ESTADO_CONFIG['To Do']
+                  const currentSprint = (sprints || []).find(s => s.id === t.sprintId)
+                  
+                  return (
+                    <div 
+                      key={t.id} 
+                      draggable
+                      onDragStart={(e) => onDragStart(e, t.id)}
+                      className={`text-[11px] px-3 py-2 rounded-lg border flex items-center justify-between gap-3 bg-surface-900/40 border-white/[0.03] cursor-grab active:cursor-grabbing hover:bg-surface-900 hover:border-white/10 transition-all select-none`}
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <span className={t.estado === 'Done' ? 'line-through text-slate-500 opacity-60' : 'text-slate-300'}>
+                          {t.titulo}
+                        </span>
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded border uppercase shrink-0 font-medium tracking-wider ${cfg.bg} ${cfg.color} ${cfg.border}`}>
+                          {t.estado === 'In Progress' ? 'Progreso' : t.estado}
+                        </span>
+                      </div>
+
+                      {/* Indicador visual de a qué Sprint pertenece */}
+                      {currentSprint ? (
+                        <span className="text-[9px] bg-violet-500/10 text-violet-400 border border-violet-500/20 px-2 py-0.5 rounded-full font-semibold shrink-0">
+                          🚀 {currentSprint.nombre}
+                        </span>
+                      ) : (
+                        <span className="text-[9px] bg-slate-500/10 text-slate-400 border border-slate-500/20 px-2 py-0.5 rounded-full font-medium shrink-0">
+                          📦 Backlog
+                        </span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           )}
         </div>
       )}
-    </div>
-  )
-}
-
-// ─── Local Sprint Block Component with dynamic summary ───
-
-function SprintBlock({ sprint, tareasSprint, onDrop, onDragStart, onDragOver, isBacklog = false }) {
-  const resumenTiempo = useMemo(() => {
-    if (!tareasSprint || tareasSprint.length === 0) {
-      return { rango: 'Sin tareas asignadas', deadline: 'N/A', retrasado: false }
-    }
-    
-    const fechasInicio = tareasSprint.map(t => t.fechaInicio ? parseISO(t.fechaInicio) : null).filter(f => f && !isNaN(f.getTime()))
-    const fechasFin = tareasSprint.map(t => t.fechaVencimiento ? parseISO(t.fechaVencimiento) : null).filter(f => f && !isNaN(f.getTime()))
-
-    if (fechasInicio.length === 0 || fechasFin.length === 0) {
-      return { rango: 'Sin fechas definidas', deadline: 'N/A', retrasado: false }
-    }
-
-    const minDate = new Date(Math.min(...fechasInicio.map(d => d.getTime())))
-    const maxDate = new Date(Math.max(...fechasFin.map(d => d.getTime())))
-    const hoy = new Date()
-    
-    const tieneTareasIncompletas = tareasSprint.some(t => t.estado !== 'Done')
-    const esRetrasado = tieneTareasIncompletas && maxDate < hoy
-
-    return {
-      rango: `${format(minDate, 'dd MMM', { locale: es })} – ${format(maxDate, 'dd MMM yyyy', { locale: es })}`,
-      deadline: format(maxDate, 'dd/MM/yyyy'),
-      retrasado: esRetrasado
-    }
-  }, [tareasSprint])
-
-  return (
-    <div
-      onDragOver={onDragOver}
-      onDrop={(e) => onDrop(e, isBacklog ? null : sprint.id)}
-      className={`p-4 rounded-xl border transition-all ${
-        isBacklog 
-          ? 'border-dashed border-white/10 bg-slate-950/20' 
-          : 'border-white/5 bg-surface-800/40 hover:border-white/10 shadow-md'
-      }`}
-    >
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-white/5 mb-3">
-        <div className="flex items-center gap-2">
-          <span className={`text-xs font-bold ${isBacklog ? 'text-slate-400' : 'text-slate-200'}`}>
-            {isBacklog ? '📦 Backlog del Proyecto' : sprint.nombre}
-          </span>
-          <span className="text-[10px] text-slate-500 font-mono bg-white/5 px-1.5 py-0.5 rounded">
-            {tareasSprint.length} {tareasSprint.length === 1 ? 'tarea' : 'tareas'}
-          </span>
-        </div>
-        <div className="flex items-center gap-4 text-[10px] text-slate-400 font-mono">
-          <span className="flex items-center gap-1">
-            <Calendar size={11} className="text-slate-500" />
-            {resumenTiempo.rango}
-          </span>
-          <span className={`flex items-center gap-1 ${resumenTiempo.retrasado ? 'text-rose-400 font-bold' : ''}`}>
-            <Clock size={11} className={resumenTiempo.retrasado ? 'text-rose-400' : 'text-slate-500'} />
-            Deadline: {resumenTiempo.deadline}
-            {resumenTiempo.retrasado && (
-              <span className="ml-1 bg-rose-500/20 text-rose-400 text-[8px] px-1 rounded font-sans uppercase animate-pulse">
-                Retrasado
-              </span>
-            )}
-          </span>
-        </div>
-      </div>
-
-      <div className="space-y-1.5 min-h-[44px] flex flex-col justify-start">
-        {tareasSprint.length === 0 ? (
-          <p className="text-[11px] text-slate-500 italic text-center py-2">
-            Arrastra y suelta tareas aquí para organizarlas
-          </p>
-        ) : (
-          tareasSprint.map(t => {
-            const cfg = ESTADO_CONFIG[t.estado] || ESTADO_CONFIG['To Do']
-            return (
-              <div
-                key={t.id}
-                draggable
-                onDragStart={(e) => onDragStart(e, t.id)}
-                className="flex items-center justify-between gap-3 bg-surface-900/60 border border-white/[0.03] p-2.5 rounded-lg cursor-grab active:cursor-grabbing hover:bg-surface-900 hover:border-white/5 transition-all group"
-              >
-                <span className={`text-xs truncate group-hover:text-white transition-colors ${
-                  t.estado === 'Done' ? 'line-through text-slate-500 opacity-60' : 'text-slate-300'
-                }`}>
-                  {t.titulo}
-                </span>
-                <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded border uppercase shrink-0 tracking-wider ${cfg.bg} ${cfg.color} ${cfg.border}`}>
-                  {t.estado === 'In Progress' ? 'Progreso' : t.estado}
-                </span>
-              </div>
-            )
-          })
-        )}
-      </div>
     </div>
   )
 }
@@ -417,7 +350,6 @@ function SprintBlock({ sprint, tareasSprint, onDrop, onDragStart, onDragOver, is
 function ProjectReportCard({ proyecto, historias, tareas }) {
   const [collapsed, setCollapsed] = useState(true)
   const [showGantt, setShowGantt] = useState(false)
-  const [showSprints, setShowSprints] = useState(false)
   const [nuevoSprintNombre, setNuevoSprintNombre] = useState('')
   const [creandoSprint, setCreandoSprint] = useState(false)
   const [ocultarCompletados, setOcultarCompletados] = useState(false)
@@ -533,7 +465,6 @@ function ProjectReportCard({ proyecto, historias, tareas }) {
                 ? 'bg-amber-500/20 text-amber-400 border-amber-500/30'
                 : 'bg-white/5 text-slate-400 border-white/10 hover:bg-white/10'
             }`}
-            title={ocultarCompletados ? "Mostrar requerimientos completados" : "Ocultar requerimientos completados"}
           >
             {ocultarCompletados ? 'Mostrar Completados' : 'Ocultar Completados'}
           </button>
@@ -561,7 +492,70 @@ function ProjectReportCard({ proyecto, historias, tareas }) {
       </div>
 
       {!collapsed && (
-        <div className="p-4 space-y-3 animate-fade-in">
+        <div className="p-4 space-y-4 animate-fade-in">
+
+          {/* 🎯 BARRA INTEGRADA DE SPRINTS (Zonas de suelte rápidas para Drag & Drop) */}
+          <div className="bg-surface-850/40 border border-white/5 rounded-xl p-3 space-y-2.5">
+            <div className="flex items-center justify-between gap-3 border-b border-white/[0.04] pb-2">
+              <span className="text-xs font-bold text-slate-400 flex items-center gap-1.5">
+                <Layers size={14} className="text-violet-400" /> Planificación de Sprints (Suelta las tareas aquí)
+              </span>
+              <button
+                onClick={() => setCreandoSprint(!creandoSprint)}
+                className="flex items-center gap-1 text-[11px] font-semibold text-violet-400 hover:text-violet-300 transition-colors bg-violet-500/10 border border-violet-500/20 px-2 py-0.5 rounded"
+              >
+                <Plus size={12} /> {creandoSprint ? 'Cancelar' : 'Nuevo Sprint'}
+              </button>
+            </div>
+
+            {creandoSprint && (
+              <form onSubmit={handleCrearSprint} className="flex items-center gap-2 max-w-sm animate-fade-in">
+                <input
+                  type="text"
+                  placeholder="Ej: Sprint 1 - Core..."
+                  value={nuevoSprintNombre}
+                  onChange={(e) => setNuevoSprintNombre(e.target.value)}
+                  className="bg-surface-900 text-xs px-2.5 py-1.5 rounded border border-white/10 outline-none text-slate-200 focus:border-violet-500 flex-1"
+                  autoFocus
+                />
+                <button type="submit" className="text-xs font-semibold px-3 py-1.5 bg-violet-600 hover:bg-violet-500 text-white rounded-lg transition-colors">
+                  Guardar
+                </button>
+              </form>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+              {/* Zona de Drop para Backlog / Ningún sprint */}
+              <div
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, null)}
+                className="p-2.5 rounded-lg border border-dashed border-white/10 bg-slate-950/20 flex items-center justify-between hover:bg-slate-950/40 transition-colors group min-h-[40px]"
+              >
+                <span className="text-xs font-medium text-slate-400 truncate">📦 Backlog General</span>
+                <span className="text-[10px] text-slate-500 font-mono bg-white/5 px-1.5 py-0.5 rounded">
+                  {tareas.filter(t => !t.sprintId).length}
+                </span>
+              </div>
+
+              {/* Zonas de Drop dinámicas para cada Sprint creado */}
+              {sprintsProyecto.map(sprint => {
+                const count = tareas.filter(t => t.sprintId === sprint.id).length
+                return (
+                  <div
+                    key={sprint.id}
+                    onDragOver={handleDragOver}
+                    onDrop={(e) => handleDrop(e, sprint.id)}
+                    className="p-2.5 rounded-lg border border-white/5 bg-surface-800/50 flex items-center justify-between hover:border-white/10 hover:bg-surface-800/80 transition-colors min-h-[40px]"
+                  >
+                    <span className="text-xs font-semibold text-slate-200 truncate">🚀 {sprint.nombre}</span>
+                    <span className="text-[10px] text-slate-400 font-mono bg-white/5 px-1.5 py-0.5 rounded">
+                      {count}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
 
           {/* Requirements table */}
           {historias.length === 0 ? (
@@ -572,19 +566,19 @@ function ProjectReportCard({ proyecto, historias, tareas }) {
               <div className="grid grid-cols-[1fr_120px_110px_90px] px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500 bg-surface-800/40 border-b border-white/5 select-none">
                 <div>Requerimiento</div>
                 <div 
-                  className={`cursor-pointer hover:text-slate-300 transition-colors flex items-center gap-1 ${sortBy === 'estado' ? 'text-accent-violet font-bold' : ''}`}
+                  className={`cursor-pointer hover:text-slate-300 transition-colors flex items-center gap-1 ${sortBy === 'estado' ? 'text-violet-400 font-bold' : ''}`}
                   onClick={() => setSortBy(sortBy === 'estado' ? null : 'estado')}
                 >
                   Estado {sortBy === 'estado' && '↕'}
                 </div>
                 <div 
-                  className={`cursor-pointer hover:text-slate-300 transition-colors flex items-center gap-1 ${sortBy === 'fecha' ? 'text-accent-violet font-bold' : ''}`}
+                  className={`cursor-pointer hover:text-slate-300 transition-colors flex items-center gap-1 ${sortBy === 'fecha' ? 'text-violet-400 font-bold' : ''}`}
                   onClick={() => setSortBy(sortBy === 'fecha' ? null : 'fecha')}
                 >
                   <Calendar size={9} /> Fecha Límite {sortBy === 'fecha' && '↕'}
                 </div>
                 <div 
-                  className={`cursor-pointer hover:text-slate-300 transition-colors flex items-center gap-1 ${sortBy === 'responsable' ? 'text-accent-violet font-bold' : ''}`}
+                  className={`cursor-pointer hover:text-slate-300 transition-colors flex items-center gap-1 ${sortBy === 'responsable' ? 'text-violet-400 font-bold' : ''}`}
                   onClick={() => setSortBy(sortBy === 'responsable' ? null : 'responsable')}
                 >
                   <User size={9} /> Responsable {sortBy === 'responsable' && '↕'}
@@ -594,7 +588,13 @@ function ProjectReportCard({ proyecto, historias, tareas }) {
                 <p className="text-xs text-slate-500 italic px-2 py-4 text-center">No hay requerimientos que coincidan con los filtros.</p>
               ) : (
                 historiasProcesadas.map(h => (
-                  <RequisitoRow key={h.id} h={h} tareas={tareas} />
+                  <RequisitoRow 
+                    key={h.id} 
+                    h={h} 
+                    tareas={tareas} 
+                    sprints={state.sprints || []}
+                    onDragStart={handleDragStart}
+                  />
                 ))
               )}
             </div>
@@ -627,7 +627,7 @@ function ProjectReportCard({ proyecto, historias, tareas }) {
               onClick={() => setShowGantt(!showGantt)}
               className="flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-slate-200 transition-colors py-1.5 px-3 rounded-lg bg-surface-800/50 border border-white/5 hover:border-white/10"
             >
-              <BarChart2 size={13} className="text-accent-violet" />
+              <BarChart2 size={13} className="text-violet-400" />
               {showGantt ? 'Ocultar Gantt del proyecto' : 'Ver Gantt del proyecto'}
               {showGantt ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
             </button>
@@ -637,185 +637,58 @@ function ProjectReportCard({ proyecto, historias, tareas }) {
             )}
           </div>
 
-          {/* Sprints and Planning toggle */}
-          <div className="mt-2">
-            <button
-              onClick={() => setShowSprints(!showSprints)}
-              className="flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-slate-200 transition-colors py-1.5 px-3 rounded-lg bg-surface-800/50 border border-white/5 hover:border-white/10"
-            >
-              <Layers size={13} className="text-violet-400" />
-              {showSprints ? 'Ocultar Sprints / Fases' : 'Ver Sprints / Fases y Planificar'}
-              {showSprints ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-            </button>
-
-            {showSprints && (
-              <div className="mt-3 p-4 bg-surface-900/20 border border-white/5 rounded-xl space-y-4 animate-fade-in">
-                <div className="flex items-center justify-between gap-3 border-b border-white/5 pb-2">
-                  <span className="text-xs font-bold text-slate-400 flex items-center gap-1.5">
-                    <Layers size={14} className="text-violet-400" /> Panel de Planificación (Drag & Drop)
-                  </span>
-                  <button
-                    onClick={() => setCreandoSprint(!creandoSprint)}
-                    className="flex items-center gap-1 text-[11px] font-semibold text-violet-400 hover:text-violet-300 transition-colors bg-violet-500/10 border border-violet-500/20 px-2 py-1 rounded"
-                  >
-                    <Plus size={12} />
-                    Crear Sprint / Fase
-                  </button>
-                </div>
-
-                {creandoSprint && (
-                  <form onSubmit={handleCrearSprint} className="flex items-center gap-2 max-w-sm animate-fade-in">
-                    <input
-                      type="text"
-                      placeholder="Ej: Sprint 1, Fase de Diseño..."
-                      value={nuevoSprintNombre}
-                      onChange={(e) => setNuevoSprintNombre(e.target.value)}
-                      className="bg-surface-900 text-xs px-2.5 py-1.5 rounded border border-white/10 outline-none text-slate-200 focus:border-violet-500 flex-1"
-                      autoFocus
-                    />
-                    <button type="submit" className="text-xs font-semibold px-2.5 py-1.5 bg-violet-600 hover:bg-violet-500 text-white rounded transition-colors">
-                      Guardar
-                    </button>
-                  </form>
-                )}
-
-                <div className="space-y-3">
-                  {/* Render active sprints */}
-                  {sprintsProyecto.map(sprint => {
-                    const tareasDelSprint = tareas.filter(t => t.sprintId === sprint.id)
-                    return (
-                      <SprintBlock
-                        key={sprint.id}
-                        sprint={sprint}
-                        tareasSprint={tareasDelSprint}
-                        onDrop={handleDrop}
-                        onDragStart={handleDragStart}
-                        onDragOver={handleDragOver}
-                      />
-                    )
-                  })}
-
-                  {/* Render Backlog */}
-                  {(() => {
-                    const tareasBacklog = tareas.filter(t => !t.sprintId)
-                    return (
-                      <SprintBlock
-                        sprint={{ nombre: 'Backlog (Tareas sin asignar)' }}
-                        tareasSprint={tareasBacklog}
-                        onDrop={handleDrop}
-                        onDragStart={handleDragStart}
-                        onDragOver={handleDragOver}
-                        isBacklog={true}
-                      />
-                    )
-                  })()}
-                </div>
-              </div>
-            )}
-          </div>
-
         </div>
       )}
     </div>
   )
 }
 
-// ─── Main Reports view ───
+// ─── Main Default Export Component ───
 
 export default function Reports() {
   const { state } = useTask()
+  
+  const historiasData = useMemo(() => state?.historias || [], [state?.historias])
+  const tareasData = useMemo(() => state?.tareas || [], [state?.tareas])
 
-  const proyectosConTipo = state.proyectos.filter(p => p.tipo === 'Proyecto')
-
-  const totalHistorias = (state.historias || []).length
-  const completadasGlobal = (state.historias || []).filter(h => h.completada).length
-  const vencidasGlobal = (state.historias || []).filter(h =>
-    h.fechaLimite && !h.completada && new Date(h.fechaLimite) < new Date()
-  ).length
-  const progressGlobal = totalHistorias > 0 ? Math.round((completadasGlobal / totalHistorias) * 100) : 0
+  // Obtenemos los nombres únicos de todos los proyectos activos
+  const proyectosUnicos = useMemo(() => {
+    const set = new Set()
+    historiasData.forEach(h => { if (h.proyecto) set.add(h.proyecto) })
+    tareasData.forEach(t => { if (t.proyecto) set.add(t.proyecto) })
+    return Array.from(set)
+  }, [historiasData, tareasData])
 
   return (
-    <div className="p-8 animate-fade-in max-w-5xl mx-auto space-y-8 text-slate-100">
-
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
-          <ClipboardList size={18} className="text-accent-violet" />
-        </div>
+    <div className="p-6 space-y-6 text-white bg-slate-950 min-h-screen">
+      {/* Page Header */}
+      <div className="flex items-center gap-3 border-b border-white/5 pb-4">
+        <ClipboardList className="text-violet-400" size={24} />
         <div>
-          <h1 className="text-2xl font-display font-bold text-slate-100">Informes de Proyecto</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Requerimientos, estado, plazos, responsables y Gantt por proyecto</p>
+          <h1 className="text-xl font-bold font-display text-slate-100">Informes de Requerimientos</h1>
+          <p className="text-xs text-slate-400 mt-0.5">Gestión de alcance, control temporal con minigantt interactivo y asignación ágil de sprints.</p>
         </div>
       </div>
 
-      {/* Global KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-surface-700/30 border border-white/5 rounded-xl p-4 text-center">
-          <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Proyectos</p>
-          <p className="text-2xl font-bold font-mono text-slate-100">{proyectosConTipo.length}</p>
-        </div>
-        <div className="bg-surface-700/30 border border-white/5 rounded-xl p-4 text-center">
-          <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Requerimientos</p>
-          <p className="text-2xl font-bold font-mono text-slate-100">{totalHistorias}</p>
-        </div>
-        <div className="bg-surface-700/30 border border-white/5 rounded-xl p-4 text-center">
-          <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Completados</p>
-          <p className="text-2xl font-bold font-mono text-emerald-400">{completadasGlobal}</p>
-        </div>
-        <div className={`bg-surface-700/30 border rounded-xl p-4 text-center ${vencidasGlobal > 0 ? 'border-rose-500/20' : 'border-white/5'}`}>
-          <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Vencidos</p>
-          <p className={`text-2xl font-bold font-mono ${vencidasGlobal > 0 ? 'text-rose-400' : 'text-slate-400'}`}>{vencidasGlobal}</p>
-        </div>
-      </div>
-
-      {/* Global progress */}
-      {totalHistorias > 0 && (
-        <div className="bg-surface-700/20 border border-white/5 rounded-xl px-5 py-3 flex items-center gap-4">
-          <div className="flex-1">
-            <div className="flex justify-between text-xs text-slate-400 mb-2">
-              <span className="font-medium">Progreso global de requerimientos</span>
-              <span className="font-mono">{progressGlobal}%</span>
-            </div>
-            <div className="h-2 bg-surface-600 rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all duration-700"
-                style={{
-                  width: `${progressGlobal}%`,
-                  background: progressGlobal === 100
-                    ? '#34d399'
-                    : 'linear-gradient(90deg, #7c6cfc, #22d3ee)'
-                }}
-              />
-            </div>
-          </div>
-          {progressGlobal === 100 && (
-            <CheckCircle2 size={22} className="text-emerald-400 shrink-0" />
-          )}
-        </div>
-      )}
-
-      {/* Per-project cards */}
+      {/* Grid / List of Project Cards */}
       <div className="space-y-4">
-        {proyectosConTipo.length === 0 ? (
-          <div className="py-12 border border-dashed border-white/10 rounded-2xl text-center text-slate-500 text-sm">
-            No hay proyectos creados aún. Crea uno desde "Proyectos y Tareas".
-          </div>
+        {proyectosUnicos.length === 0 ? (
+          <p className="text-sm text-slate-500 italic py-8 text-center">No hay proyectos registrados con requerimientos o tareas.</p>
         ) : (
-          proyectosConTipo.map(p => {
-            const historias = (state.historias || []).filter(h => h.proyecto === p.nombre)
-            const tareas = (state.tareas || []).filter(t => t.proyecto === p.nombre)
+          proyectosUnicos.map(projName => {
+            const historiasDelProyecto = historiasData.filter(h => h.proyecto === projName)
+            const tareasDelProyecto = tareasData.filter(t => t.proyecto === projName)
             return (
               <ProjectReportCard
-                key={p.nombre}
-                proyecto={p.nombre}
-                historias={historias}
-                tareas={tareas}
+                key={projName}
+                proyecto={projName}
+                historias={historiasDelProyecto}
+                tareas={tareasDelProyecto}
               />
             )
           })
         )}
       </div>
-
     </div>
   )
 }
