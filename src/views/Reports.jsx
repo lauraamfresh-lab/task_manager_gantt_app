@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react'
-import { ClipboardList, ChevronDown, ChevronRight, Check, Circle, Calendar, User, BarChart2, AlertTriangle, CheckCircle2, Clock, Layers, Plus } from 'lucide-react'
+import { ClipboardList, ChevronDown, ChevronRight, Check, Circle, Calendar, User, BarChart2, AlertTriangle, CheckCircle2, Clock, Layers, Plus, Trash2, Edit2 } from 'lucide-react'
 import { format, parseISO, differenceInDays, addDays, startOfWeek } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { useTask, getProjectColor, ESTADO_CONFIG, getEtiquetaColor } from '../context/TaskContext'
@@ -482,6 +482,19 @@ function ProjectReportCard({ proyecto, historias, tareas }) {
     setCreandoSprint(false)
   }
 
+  const handleEditSprint = (sprintId, nuevoNombre) => {
+    dispatch({
+      type: 'UPDATE_SPRINT',
+      payload: { id: sprintId, nombre: nuevoNombre }
+    })
+  }
+
+  const handleDeleteSprint = (sprintId) => {
+    if (window.confirm('¿Eliminar este Sprint? Los requerimientos volverán al Backlog.')) {
+      dispatch({ type: 'DELETE_SPRINT', payload: sprintId })
+    }
+  }
+
   return (
     <div className="bg-surface-700/30 border border-white/5 rounded-2xl overflow-hidden shadow-xl">
 
@@ -585,9 +598,26 @@ function ProjectReportCard({ proyecto, historias, tareas }) {
                     historiasSprint={historiasDelSprint}
                     onDrop={handleDropRequisito}
                     onDragOver={handleDragOver}
+                    onEdit={handleEditSprint}
+                    onDelete={handleDeleteSprint}
                   />
                 )
               })}
+
+              {(() => {
+                // Mejora: Si un sprint se borra, sus requerimientos vuelven automáticamente aquí
+                const activeSprintIds = new Set(sprintsProyecto.map(s => s.id))
+                const historiasBacklog = historias.filter(h => !h.sprintId || !activeSprintIds.has(h.sprintId))
+                return (
+                  <SprintBlock
+                    sprint={{ nombre: 'Backlog' }}
+                    historiasSprint={historiasBacklog}
+                    onDrop={handleDropRequisito}
+                    onDragOver={handleDragOver}
+                    isBacklog={true}
+                  />
+                )
+              })()}
 
               {(() => {
                 const historiasBacklog = historias.filter(h => !h.sprintId)
