@@ -223,7 +223,7 @@ function MiniGantt({ tareas, proyectosData }) {
   )
 }
 
-// ─── Requirement row ───
+// ─── Requirement row with Drag and Drop Support ───
 
 function RequisitoRow({ h, tareas }) {
   const [expanded, setExpanded] = useState(false)
@@ -234,8 +234,17 @@ function RequisitoRow({ h, tareas }) {
 
   const isOverdue = h.fechaLimite && !h.completada && new Date(h.fechaLimite) < new Date()
 
+  // Handler para iniciar arrastre del requerimiento
+  const handleDragStart = (e) => {
+    e.dataTransfer.setData('text/plain', h.id)
+  }
+
   return (
-    <div className={`border-b border-white/[0.04] last:border-0 ${h.completada ? 'opacity-60' : ''}`}>
+    <div 
+      draggable
+      onDragStart={handleDragStart}
+      className={`border-b border-white/[0.04] last:border-0 cursor-grab active:cursor-grabbing hover:bg-white/[0.01] transition-all ${h.completada ? 'opacity-60' : ''}`}
+    >
       <div
         className="grid grid-cols-[1fr_120px_110px_90px] items-center px-4 py-3 hover:bg-white/[0.02] cursor-pointer transition-colors"
         onClick={() => setExpanded(!expanded)}
@@ -297,6 +306,11 @@ function RequisitoRow({ h, tareas }) {
           <p className="text-xs text-slate-400 leading-relaxed whitespace-pre-wrap bg-surface-800/40 rounded-lg p-3 border border-white/5">
             {h.descripcion}
           </p>
+          {h.sprintId && (
+            <p className="text-[10px] mt-1 text-violet-400 font-medium">
+              Asignado a: {h.sprintId}
+            </p>
+          )}
           {tareasVinculadas.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1.5">
               {tareasVinculadas.map(t => {
@@ -315,34 +329,21 @@ function RequisitoRow({ h, tareas }) {
   )
 }
 
-// ─── Local Sprint Block Component with dynamic summary ───
+// ─── Local Sprint Block for Requirements ───
 
-function SprintBlock({ sprint, tareasSprint, onDrop, onDragStart, onDragOver, isBacklog = false }) {
-  const resumenTiempo = useMemo(() => {
-    if (!tareasSprint || tareasSprint.length === 0) {
-      return { rango: 'Sin tareas asignadas', deadline: 'N/A', retrasado: false }
-    }
+function SprintBlock({ sprint, historiasSprint, onDrop, onDragOver, isBacklog = false }) {
+  // Cálculo exacto y automático de la fecha de vencimiento del Sprint en base a sus requerimientos
+  const fechaVencimientoSprint = useMemo(() => {
+    if (!historiasSprint || historiasSprint.length === 0) return 'N/A'
+    const fechas = historiasSprint
+      .map(h => h.fechaLimite ? new Date(h.fechaLimite) : null)
+      .filter(f => f && !isNaN(f.getTime()))
     
-    const fechasInicio = tareasSprint.map(t => t.fechaInicio ? parseISO(t.fechaInicio) : null).filter(f => f && !isNaN(f.getTime()))
-    const fechasFin = tareasSprint.map(t => t.fechaVencimiento ? parseISO(t.fechaVencimiento) : null).filter(f => f && !isNaN(f.getTime()))
-
-    if (fechasInicio.length === 0 || fechasFin.length === 0) {
-      return { rango: 'Sin fechas definidas', deadline: 'N/A', retrasado: false }
-    }
-
-    const minDate = new Date(Math.min(...fechasInicio.map(d => d.getTime())))
-    const maxDate = new Date(Math.max(...fechasFin.map(d => d.getTime())))
-    const hoy = new Date()
-    
-    const tieneTareasIncompletas = tareasSprint.some(t => t.estado !== 'Done')
-    const esRetrasado = tieneTareasIncompletas && maxDate < hoy
-
-    return {
-      rango: `${format(minDate, 'dd MMM', { locale: es })} – ${format(maxDate, 'dd MMM yyyy', { locale: es })}`,
-      deadline: format(maxDate, 'dd/MM/yyyy'),
-      retrasado: esRetrasado
-    }
-  }, [tareasSprint])
+    if (fechas.length === 0) return 'Sin definir'
+    // La fecha límite máxima/más lejana del sprint
+    const maxDate = new Date(Math.max(...fechas.map(d => d.getTime())))
+    return format(maxDate, 'dd/MM/yyyy')
+  }, [historiasSprint])
 
   return (
     <div
@@ -357,62 +358,47 @@ function SprintBlock({ sprint, tareasSprint, onDrop, onDragStart, onDragOver, is
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-white/5 mb-3">
         <div className="flex items-center gap-2">
           <span className={`text-xs font-bold ${isBacklog ? 'text-slate-400' : 'text-slate-200'}`}>
-            {isBacklog ? '📦 Backlog del Proyecto' : sprint.nombre}
+            {isBacklog ? '📦 Requerimientos sin asignar (Backlog)' : sprint.nombre}
           </span>
           <span className="text-[10px] text-slate-500 font-mono bg-white/5 px-1.5 py-0.5 rounded">
-            {tareasSprint.length} {tareasSprint.length === 1 ? 'tarea' : 'tareas'}
+            {historiasSprint.length} {historiasSprint.length === 1 ? 'requerimiento' : 'requerimientos'}
           </span>
         </div>
-        <div className="flex items-center gap-4 text-[10px] text-slate-400 font-mono">
-          <span className="flex items-center gap-1">
-            <Calendar size={11} className="text-slate-500" />
-            {resumenTiempo.rango}
-          </span>
-          <span className={`flex items-center gap-1 ${resumenTiempo.retrasado ? 'text-rose-400 font-bold' : ''}`}>
-            <Clock size={11} className={resumenTiempo.retrasado ? 'text-rose-400' : 'text-slate-500'} />
-            Deadline: {resumenTiempo.deadline}
-            {resumenTiempo.retrasado && (
-              <span className="ml-1 bg-rose-500/20 text-rose-400 text-[8px] px-1 rounded font-sans uppercase animate-pulse">
-                Retrasado
-              </span>
-            )}
-          </span>
-        </div>
+        {!isBacklog && (
+          <div className="flex items-center gap-2 text-[10px] text-violet-400 font-mono">
+            <Clock size={11} />
+            <span>fecha vencimiento del sprint: {fechaVencimientoSprint}</span>
+          </div>
+        )}
       </div>
 
       <div className="space-y-1.5 min-h-[44px] flex flex-col justify-start">
-        {tareasSprint.length === 0 ? (
+        {historiasSprint.length === 0 ? (
           <p className="text-[11px] text-slate-500 italic text-center py-2">
-            Arrastra y suelta tareas aquí para organizarlas
+            Arrastra requerimientos aquí para organizarlos en este sprint
           </p>
         ) : (
-          tareasSprint.map(t => {
-            const cfg = ESTADO_CONFIG[t.estado] || ESTADO_CONFIG['To Do']
-            return (
-              <div
-                key={t.id}
-                draggable
-                onDragStart={(e) => onDragStart(e, t.id)}
-                className="flex items-center justify-between gap-3 bg-surface-900/60 border border-white/[0.03] p-2.5 rounded-lg cursor-grab active:cursor-grabbing hover:bg-surface-900 hover:border-white/5 transition-all group"
-              >
-                <span className={`text-xs truncate group-hover:text-white transition-colors ${
-                  t.estado === 'Done' ? 'line-through text-slate-500 opacity-60' : 'text-slate-300'
-                }`}>
-                  {t.titulo}
-                </span>
-                <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded border uppercase shrink-0 tracking-wider ${cfg.bg} ${cfg.color} ${cfg.border}`}>
-                  {t.estado === 'In Progress' ? 'Progreso' : t.estado}
+          historiasSprint.map(h => (
+            <div
+              key={h.id}
+              className="flex items-center justify-between gap-3 bg-surface-900/60 border border-white/[0.03] p-2 rounded-lg"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                {h.completada ? <Check size={12} className="text-emerald-400 shrink-0" /> : <Circle size={12} className="text-slate-600 shrink-0" />}
+                <span className={`text-xs truncate ${h.completada ? 'line-through text-slate-500 opacity-60' : 'text-slate-300'}`}>
+                  {h.titulo}
                 </span>
               </div>
-            )
-          })
+              {h.fechaLimite && <span className="text-[9px] font-mono text-slate-500 shrink-0">{h.fechaLimite}</span>}
+            </div>
+          ))
         )}
       </div>
     </div>
   )
 }
 
-// ─── Per-project report card ───
+// ─── Per-project report card (Strictly original UI + Sprint Panel) ───
 
 function ProjectReportCard({ proyecto, historias, tareas }) {
   const [collapsed, setCollapsed] = useState(true)
@@ -465,22 +451,18 @@ function ProjectReportCard({ proyecto, historias, tareas }) {
     return list
   }, [historias, ocultarCompletados, sortBy])
 
-  // --- HTML5 Native Drag and Drop ---
-  const handleDragStart = (e, taskId) => {
-    e.dataTransfer.setData('text/plain', taskId)
-  }
-
+  // --- HTML5 Native Drag and Drop de Requerimientos ---
   const handleDragOver = (e) => {
     e.preventDefault()
   }
 
-  const handleDrop = (e, targetSprintId) => {
+  const handleDropRequisito = (e, targetSprintId) => {
     e.preventDefault()
-    const taskId = e.dataTransfer.getData('text/plain')
-    if (taskId) {
+    const historiaId = e.dataTransfer.getData('text/plain')
+    if (historiaId && dispatch) {
       dispatch({
-        type: 'UPDATE_TASK_SPRINT',
-        payload: { taskId, sprintId: targetSprintId }
+        type: 'UPDATE_HISTORIA_SPRINT', // Acción que debes contemplar en tu context para guardar h.sprintId
+        payload: { historiaId, sprintId: targetSprintId }
       })
     }
   }
@@ -521,7 +503,7 @@ function ProjectReportCard({ proyecto, historias, tareas }) {
           )}
         </div>
 
-        {/* KPI chips */}
+        {/* KPI chips original style */}
         <div className="flex items-center gap-3 flex-wrap" onClick={e => e.stopPropagation()}>
           <button
             onClick={(e) => {
@@ -533,7 +515,6 @@ function ProjectReportCard({ proyecto, historias, tareas }) {
                 ? 'bg-amber-500/20 text-amber-400 border-amber-500/30'
                 : 'bg-white/5 text-slate-400 border-white/10 hover:bg-white/10'
             }`}
-            title={ocultarCompletados ? "Mostrar requerimientos completados" : "Ocultar requerimientos completados"}
           >
             {ocultarCompletados ? 'Mostrar Completados' : 'Ocultar Completados'}
           </button>
@@ -562,6 +543,66 @@ function ProjectReportCard({ proyecto, historias, tareas }) {
 
       {!collapsed && (
         <div className="p-4 space-y-3 animate-fade-in">
+
+          {/* Sprints Panel at top of project for planning mapping */}
+          <div className="bg-surface-800/20 p-4 border border-white/5 rounded-xl space-y-3">
+            <div className="flex items-center justify-between gap-3 border-b border-white/5 pb-2">
+              <span className="text-xs font-bold text-slate-400 flex items-center gap-1.5">
+                <Layers size={14} className="text-violet-400" /> Planificar Sprints por Proyecto (Arrastra requerimientos abajo)
+              </span>
+              <button
+                onClick={() => setCreandoSprint(!creandoSprint)}
+                className="flex items-center gap-1 text-[11px] font-semibold text-violet-400 hover:text-violet-300 transition-colors bg-violet-500/10 border border-violet-500/20 px-2 py-1 rounded"
+              >
+                <Plus size={12} />
+                Crear Sprint
+              </button>
+            </div>
+
+            {creandoSprint && (
+              <form onSubmit={handleCrearSprint} className="flex items-center gap-2 max-w-sm animate-fade-in">
+                <input
+                  type="text"
+                  placeholder="Ej: Sprint 1, Fase MVP..."
+                  value={nuevoSprintNombre}
+                  onChange={(e) => setNuevoSprintNombre(e.target.value)}
+                  className="bg-surface-900 text-xs px-2.5 py-1.5 rounded border border-white/10 outline-none text-slate-200 focus:border-violet-500 flex-1"
+                  autoFocus
+                />
+                <button type="submit" className="text-xs font-semibold px-2.5 py-1.5 bg-violet-600 hover:bg-violet-500 text-white rounded transition-colors">
+                  Guardar
+                </button>
+              </form>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {sprintsProyecto.map(sprint => {
+                const historiasDelSprint = historias.filter(h => h.sprintId === sprint.id)
+                return (
+                  <SprintBlock
+                    key={sprint.id}
+                    sprint={sprint}
+                    historiasSprint={historiasDelSprint}
+                    onDrop={handleDropRequisito}
+                    onDragOver={handleDragOver}
+                  />
+                )
+              })}
+
+              {(() => {
+                const historiasBacklog = historias.filter(h => !h.sprintId)
+                return (
+                  <SprintBlock
+                    sprint={{ nombre: 'Backlog' }}
+                    historiasSprint={historiasBacklog}
+                    onDrop={handleDropRequisito}
+                    onDragOver={handleDragOver}
+                    isBacklog={true}
+                  />
+                )
+              })()}
+            </div>
+          </div>
 
           {/* Requirements table */}
           {historias.length === 0 ? (
@@ -637,83 +678,6 @@ function ProjectReportCard({ proyecto, historias, tareas }) {
             )}
           </div>
 
-          {/* Sprints and Planning toggle */}
-          <div className="mt-2">
-            <button
-              onClick={() => setShowSprints(!showSprints)}
-              className="flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-slate-200 transition-colors py-1.5 px-3 rounded-lg bg-surface-800/50 border border-white/5 hover:border-white/10"
-            >
-              <Layers size={13} className="text-violet-400" />
-              {showSprints ? 'Ocultar Sprints / Fases' : 'Ver Sprints / Fases y Planificar'}
-              {showSprints ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-            </button>
-
-            {showSprints && (
-              <div className="mt-3 p-4 bg-surface-900/20 border border-white/5 rounded-xl space-y-4 animate-fade-in">
-                <div className="flex items-center justify-between gap-3 border-b border-white/5 pb-2">
-                  <span className="text-xs font-bold text-slate-400 flex items-center gap-1.5">
-                    <Layers size={14} className="text-violet-400" /> Panel de Planificación (Drag & Drop)
-                  </span>
-                  <button
-                    onClick={() => setCreandoSprint(!creandoSprint)}
-                    className="flex items-center gap-1 text-[11px] font-semibold text-violet-400 hover:text-violet-300 transition-colors bg-violet-500/10 border border-violet-500/20 px-2 py-1 rounded"
-                  >
-                    <Plus size={12} />
-                    Crear Sprint / Fase
-                  </button>
-                </div>
-
-                {creandoSprint && (
-                  <form onSubmit={handleCrearSprint} className="flex items-center gap-2 max-w-sm animate-fade-in">
-                    <input
-                      type="text"
-                      placeholder="Ej: Sprint 1, Fase de Diseño..."
-                      value={nuevoSprintNombre}
-                      onChange={(e) => setNuevoSprintNombre(e.target.value)}
-                      className="bg-surface-900 text-xs px-2.5 py-1.5 rounded border border-white/10 outline-none text-slate-200 focus:border-violet-500 flex-1"
-                      autoFocus
-                    />
-                    <button type="submit" className="text-xs font-semibold px-2.5 py-1.5 bg-violet-600 hover:bg-violet-500 text-white rounded transition-colors">
-                      Guardar
-                    </button>
-                  </form>
-                )}
-
-                <div className="space-y-3">
-                  {/* Render active sprints */}
-                  {sprintsProyecto.map(sprint => {
-                    const tareasDelSprint = tareas.filter(t => t.sprintId === sprint.id)
-                    return (
-                      <SprintBlock
-                        key={sprint.id}
-                        sprint={sprint}
-                        tareasSprint={tareasDelSprint}
-                        onDrop={handleDrop}
-                        onDragStart={handleDragStart}
-                        onDragOver={handleDragOver}
-                      />
-                    )
-                  })}
-
-                  {/* Render Backlog */}
-                  {(() => {
-                    const tareasBacklog = tareas.filter(t => !t.sprintId)
-                    return (
-                      <SprintBlock
-                        sprint={{ nombre: 'Backlog (Tareas sin asignar)' }}
-                        tareasSprint={tareasBacklog}
-                        onDrop={handleDrop}
-                        onDragStart={handleDragStart}
-                        onDragOver={handleDragOver}
-                        isBacklog={true}
-                      />
-                    )
-                  })()}
-                </div>
-              </div>
-            )}
-          </div>
-
         </div>
       )}
     </div>
@@ -748,7 +712,7 @@ export default function Reports() {
         </div>
       </div>
 
-      {/* Global KPIs */}
+      {/* Global KPIs strictly restored */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="bg-surface-700/30 border border-white/5 rounded-xl p-4 text-center">
           <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Proyectos</p>
@@ -768,7 +732,7 @@ export default function Reports() {
         </div>
       </div>
 
-      {/* Global progress */}
+      {/* Global progress bar */}
       {totalHistorias > 0 && (
         <div className="bg-surface-700/20 border border-white/5 rounded-xl px-5 py-3 flex items-center gap-4">
           <div className="flex-1">
