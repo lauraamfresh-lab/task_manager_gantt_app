@@ -331,8 +331,22 @@ function RequisitoRow({ h, tareas }) {
 
 // ─── Local Sprint Block for Requirements ───
 
-function SprintBlock({ sprint, historiasSprint, onDrop, onDragOver, isBacklog = false }) {
-  // Cálculo exacto y automático de la fecha de vencimiento del Sprint en base a sus requerimientos
+// ─── Local Sprint Block for Requirements ───
+
+function SprintBlock({ sprint, historiasSprint, onDrop, onDragOver, isBacklog = false, onEdit, onDelete }) {
+  // El backlog inicia colapsado (true), los sprints normales inician abiertos (false)
+  const [isCollapsed, setIsCollapsed] = useState(isBacklog)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editName, setEditName] = useState(sprint.nombre)
+
+  const handleSaveEdit = (e) => {
+    e.preventDefault()
+    if (editName.trim() && onEdit) {
+      onEdit(sprint.id, editName.trim())
+      setIsEditing(false)
+    }
+  }
+
   const fechaVencimientoSprint = useMemo(() => {
     if (!historiasSprint || historiasSprint.length === 0) return 'N/A'
     const fechas = historiasSprint
@@ -340,7 +354,6 @@ function SprintBlock({ sprint, historiasSprint, onDrop, onDragOver, isBacklog = 
       .filter(f => f && !isNaN(f.getTime()))
     
     if (fechas.length === 0) return 'Sin definir'
-    // La fecha límite máxima/más lejana del sprint
     const maxDate = new Date(Math.max(...fechas.map(d => d.getTime())))
     return format(maxDate, 'dd/MM/yyyy')
   }, [historiasSprint])
@@ -357,43 +370,80 @@ function SprintBlock({ sprint, historiasSprint, onDrop, onDragOver, isBacklog = 
     >
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-white/5 mb-3">
         <div className="flex items-center gap-2">
-          <span className={`text-xs font-bold ${isBacklog ? 'text-slate-400' : 'text-slate-200'}`}>
-            {isBacklog ? '📦 Requerimientos sin asignar (Backlog)' : sprint.nombre}
-          </span>
-          <span className="text-[10px] text-slate-500 font-mono bg-white/5 px-1.5 py-0.5 rounded">
-            {historiasSprint.length} {historiasSprint.length === 1 ? 'requerimiento' : 'requerimientos'}
-          </span>
+          <button 
+            onClick={() => setIsCollapsed(!isCollapsed)} 
+            className="text-slate-400 hover:text-slate-200 transition-colors bg-white/5 p-0.5 rounded"
+          >
+            {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+          </button>
+
+          {isEditing ? (
+            <form onSubmit={handleSaveEdit} className="flex items-center gap-2">
+              <input 
+                autoFocus 
+                value={editName} 
+                onChange={e => setEditName(e.target.value)} 
+                className="bg-slate-900 text-xs px-2 py-1 rounded outline-none border border-violet-500/50 text-white w-32" 
+              />
+              <button type="submit" className="text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-1 rounded hover:bg-emerald-500/30">Guardar</button>
+              <button type="button" onClick={() => setIsEditing(false)} className="text-[10px] bg-slate-500/20 text-slate-400 px-1.5 py-1 rounded hover:bg-slate-500/30">Cancelar</button>
+            </form>
+          ) : (
+            <span className={`text-xs font-bold ${isBacklog ? 'text-slate-400' : 'text-slate-200'}`}>
+              {isBacklog ? '📦 Requerimientos sin asignar (Backlog)' : sprint.nombre}
+            </span>
+          )}
+
+          {!isEditing && (
+            <span className="text-[10px] text-slate-500 font-mono bg-white/5 px-1.5 py-0.5 rounded">
+              {historiasSprint.length} {historiasSprint.length === 1 ? 'req' : 'reqs'}
+            </span>
+          )}
         </div>
-        {!isBacklog && (
-          <div className="flex items-center gap-2 text-[10px] text-violet-400 font-mono">
-            <Clock size={11} />
-            <span>fecha vencimiento del sprint: {fechaVencimientoSprint}</span>
+
+        {!isBacklog && !isEditing && (
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 text-[10px] text-violet-400 font-mono">
+              <Clock size={11} />
+              <span>Vence: {fechaVencimientoSprint}</span>
+            </div>
+            
+            <div className="flex items-center gap-1 border-l border-white/10 pl-3">
+              <button onClick={() => setIsEditing(true)} className="p-1 text-slate-500 hover:text-violet-400 hover:bg-white/5 rounded transition-colors" title="Editar Sprint">
+                <Edit2 size={12} />
+              </button>
+              <button onClick={() => onDelete(sprint.id)} className="p-1 text-slate-500 hover:text-rose-400 hover:bg-white/5 rounded transition-colors" title="Eliminar Sprint">
+                <Trash2 size={12} />
+              </button>
+            </div>
           </div>
         )}
       </div>
 
-      <div className="space-y-1.5 min-h-[44px] flex flex-col justify-start">
-        {historiasSprint.length === 0 ? (
-          <p className="text-[11px] text-slate-500 italic text-center py-2">
-            Arrastra requerimientos aquí para organizarlos en este sprint
-          </p>
-        ) : (
-          historiasSprint.map(h => (
-            <div
-              key={h.id}
-              className="flex items-center justify-between gap-3 bg-surface-900/60 border border-white/[0.03] p-2 rounded-lg"
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                {h.completada ? <Check size={12} className="text-emerald-400 shrink-0" /> : <Circle size={12} className="text-slate-600 shrink-0" />}
-                <span className={`text-xs truncate ${h.completada ? 'line-through text-slate-500 opacity-60' : 'text-slate-300'}`}>
-                  {h.titulo}
-                </span>
+      {!isCollapsed && (
+        <div className="space-y-1.5 min-h-[44px] flex flex-col justify-start animate-fade-in">
+          {historiasSprint.length === 0 ? (
+            <p className="text-[11px] text-slate-500 italic text-center py-2">
+              Arrastra requerimientos aquí para organizarlos en este sprint
+            </p>
+          ) : (
+            historiasSprint.map(h => (
+              <div
+                key={h.id}
+                className="flex items-center justify-between gap-3 bg-surface-900/60 border border-white/[0.03] p-2 rounded-lg"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  {h.completada ? <Check size={12} className="text-emerald-400 shrink-0" /> : <Circle size={12} className="text-slate-600 shrink-0" />}
+                  <span className={`text-xs truncate ${h.completada ? 'line-through text-slate-500 opacity-60' : 'text-slate-300'}`}>
+                    {h.titulo}
+                  </span>
+                </div>
+                {h.fechaLimite && <span className="text-[9px] font-mono text-slate-500 shrink-0">{h.fechaLimite}</span>}
               </div>
-              {h.fechaLimite && <span className="text-[9px] font-mono text-slate-500 shrink-0">{h.fechaLimite}</span>}
-            </div>
-          ))
-        )}
-      </div>
+            ))
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -604,7 +654,20 @@ function ProjectReportCard({ proyecto, historias, tareas }) {
                 )
               })}
 
-            
+              {(() => {
+                // Mejora: Si un sprint se borra, sus requerimientos vuelven automáticamente aquí
+                const activeSprintIds = new Set(sprintsProyecto.map(s => s.id))
+                const historiasBacklog = historias.filter(h => !h.sprintId || !activeSprintIds.has(h.sprintId))
+                return (
+                  <SprintBlock
+                    sprint={{ nombre: 'Backlog' }}
+                    historiasSprint={historiasBacklog}
+                    onDrop={handleDropRequisito}
+                    onDragOver={handleDragOver}
+                    isBacklog={true}
+                  />
+                )
+              })()}
             </div>
           </div>
 
