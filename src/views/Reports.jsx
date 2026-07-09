@@ -604,33 +604,7 @@ function ProjectReportCard({ proyecto, historias, tareas }) {
                 )
               })}
 
-              {(() => {
-                // Mejora: Si un sprint se borra, sus requerimientos vuelven automáticamente aquí
-                const activeSprintIds = new Set(sprintsProyecto.map(s => s.id))
-                const historiasBacklog = historias.filter(h => !h.sprintId || !activeSprintIds.has(h.sprintId))
-                return (
-                  <SprintBlock
-                    sprint={{ nombre: 'Backlog' }}
-                    historiasSprint={historiasBacklog}
-                    onDrop={handleDropRequisito}
-                    onDragOver={handleDragOver}
-                    isBacklog={true}
-                  />
-                )
-              })()}
-
-              {(() => {
-                const historiasBacklog = historias.filter(h => !h.sprintId)
-                return (
-                  <SprintBlock
-                    sprint={{ nombre: 'Backlog' }}
-                    historiasSprint={historiasBacklog}
-                    onDrop={handleDropRequisito}
-                    onDragOver={handleDragOver}
-                    isBacklog={true}
-                  />
-                )
-              })()}
+            
             </div>
           </div>
 
