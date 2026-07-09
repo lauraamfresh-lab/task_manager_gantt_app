@@ -37,6 +37,7 @@ const MOCK_DATA = {
     }
   ],
   bugs: [],
+  sprints: [],
   historias: [
     {
       id: 'h-1',
@@ -58,6 +59,7 @@ function init() {
     try {
       const parsed = JSON.parse(local)
       if (!parsed.historias) parsed.historias = []
+      if (!parsed.sprints) parsed.sprints = []
 
       // MIGRACIÓN: Añade campos nuevos a historias existentes que no los tengan
       parsed.historias = parsed.historias.map(h => ({
@@ -70,6 +72,7 @@ function init() {
       // MIGRACIÓN: añade historiaId a tareas existentes
       parsed.tareas = (parsed.tareas || []).map(t => ({
         historiaId: null,
+        sprintId: null,
         ...t
       }))
 
@@ -218,6 +221,25 @@ function reducer(state, action) {
       }
       return { ...state, historias: updatedHistorias, tareas: syncedTareas }
     }
+
+
+    case 'ADD_SPRINT':
+      return {
+        ...state,
+        sprints: [...(state.sprints || []), action.payload]
+      };
+
+    case 'UPDATE_TASK_SPRINT':
+      return {
+        ...state,
+        tareas: state.tareas.map(tarea => 
+          tarea.id === action.payload.taskId 
+            ? { ...tarea, sprintId: action.payload.sprintId } 
+            : tarea
+        )
+      };
+    // =============================
+    
     default:
       return state
   }
