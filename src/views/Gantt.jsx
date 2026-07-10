@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react'
-import { format, parseISO, differenceInDays, addDays, startOfWeek } from 'date-fns'
+import { format, parseISO, differenceInDays, addDays, startOfWeek, getISOWeek } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { BarChart2, Filter, Tag, ChevronDown, ChevronRight, ChevronLeft, Calendar } from 'lucide-react'
 import { useTask, ESTADO_CONFIG, getEtiquetaColor, ETIQUETAS_OPCIONES, getProjectColor } from '../context/TaskContext'
@@ -24,24 +24,20 @@ export default function Gantt() {
   const timelineBounds = useMemo(() => {
     const min = fechaInicioVista
     let diasAAnadir = 31 
-    let numMarkers = 8
 
     if (vistaMode === 'semana') {
       diasAAnadir = 7
-      numMarkers = 8
     } else if (vistaMode === 'tres_meses') {
       diasAAnadir = 90
-      numMarkers = 8
     }
 
     const max = addDays(min, diasAAnadir)
     const totalDays = Math.max(1, differenceInDays(max, min))
     
+    // Un marcador por cada día del rango, para poder ver la fecha de todos los días
     const markers = []
-    for (let i = 0; i < numMarkers; i++) {
-      const fraction = i / (numMarkers - 1)
-      const daysOffset = Math.round(fraction * totalDays)
-      markers.push(addDays(min, daysOffset))
+    for (let i = 0; i <= totalDays; i++) {
+      markers.push(addDays(min, i))
     }
 
     return { minDate: min, maxDate: max, totalDays, markers }
@@ -92,6 +88,31 @@ export default function Gantt() {
       return getPercentagePosition(today)
     }
     return null
+  }, [minDate, totalDays])
+
+  // Agrupación por semanas del año (ISO) para el indicador visual de semana
+  const semanas = useMemo(() => {
+    const result = []
+    const limite = addDays(minDate, totalDays)
+    let cursor = startOfWeek(minDate, { weekStartsOn: 1 })
+
+    while (cursor <= limite) {
+      const weekStart = cursor
+      const weekEndExclusivo = addDays(weekStart, 7)
+      const clampedStart = weekStart < minDate ? minDate : weekStart
+      const clampedEnd = weekEndExclusivo > limite ? limite : weekEndExclusivo
+
+      result.push({
+        weekNumber: getISOWeek(weekStart),
+        showBoundary: weekStart > minDate,
+        boundaryPos: getPercentagePosition(weekStart),
+        left: getPercentagePosition(clampedStart),
+        right: getPercentagePosition(clampedEnd)
+      })
+
+      cursor = addDays(cursor, 7)
+    }
+    return result
   }, [minDate, totalDays])
 
   const tareasActivas = useMemo(() => {
@@ -284,13 +305,31 @@ export default function Gantt() {
 
       <div className="border border-white/5 rounded-2xl bg-surface-700/30 overflow-hidden shadow-2xl">
         <div className="overflow-x-auto">
-          <div className="min-w-[1100px] relative">
+          <div className="relative" style={{ minWidth: `${Math.max(1100, 480 + markers.length * 52)}px` }}>
             
             <div className="absolute inset-0 left-[480px] pointer-events-none flex justify-between z-0">
               {markers.map((_, idx) => <div key={idx} className="w-px h-full border-l border-white/[0.03]" />)}
+              {semanas.map((sem, idx) => sem.showBoundary && (
+                <div key={`sem-${idx}`} className="absolute top-0 bottom-0 w-px bg-indigo-400/40 z-10" style={{ left: `${sem.boundaryPos}%` }} />
+              ))}
               {todayPosition !== null && (
                 <div className="absolute top-0 bottom-0 w-0.5 border-l-2 border-dashed border-rose-500/50 z-20" style={{ left: `${todayPosition}%` }} />
               )}
+            </div>
+
+            <div className="grid grid-cols-[480px_1fr] bg-surface-800/90 border-b border-white/5 items-stretch text-xs font-medium uppercase tracking-wider text-slate-500 z-10 relative">
+              <div className="px-5 border-r border-white/5 flex items-center h-7 text-[10px]">Semana del año</div>
+              <div className="relative h-7">
+                {semanas.map((sem, idx) => (
+                  <div
+                    key={idx}
+                    className="absolute top-0 bottom-0 flex items-center justify-center border-l border-indigo-400/30 first:border-l-0 overflow-hidden"
+                    style={{ left: `${sem.left}%`, width: `${sem.right - sem.left}%` }}
+                  >
+                    <span className="text-[9px] font-bold text-indigo-300 tracking-wider truncate px-1">Sem {sem.weekNumber}</span>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="grid grid-cols-[480px_1fr] bg-surface-800/90 border-b border-white/10 items-center text-xs font-medium uppercase tracking-wider text-slate-500 h-12 z-10 relative">

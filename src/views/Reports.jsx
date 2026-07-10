@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react'
 import { ClipboardList, ChevronDown, ChevronRight, Check, Circle, Calendar, User, BarChart2, AlertTriangle, CheckCircle2, Clock, Layers, Plus, Trash2, Edit2 } from 'lucide-react'
-import { format, parseISO, differenceInDays, addDays, startOfWeek } from 'date-fns'
+import { format, parseISO, differenceInDays, addDays, startOfWeek, getISOWeek } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { useTask, getProjectColor, ESTADO_CONFIG, getEtiquetaColor } from '../context/TaskContext'
 
@@ -16,18 +16,17 @@ function MiniGantt({ tareas, proyectosData }) {
   const timelineBounds = useMemo(() => {
     const min = fechaInicioVista
     let diasAAnadir = 31
-    let numMarkers = 8
 
-    if (vistaMode === 'semana') { diasAAnadir = 7; numMarkers = 8 }
-    else if (vistaMode === 'tres_meses') { diasAAnadir = 90; numMarkers = 8 }
+    if (vistaMode === 'semana') { diasAAnadir = 7 }
+    else if (vistaMode === 'tres_meses') { diasAAnadir = 90 }
 
     const max = addDays(min, diasAAnadir)
     const totalDays = Math.max(1, differenceInDays(max, min))
 
+    // Un marcador por cada día del rango, para poder ver la fecha de todos los días
     const markers = []
-    for (let i = 0; i < numMarkers; i++) {
-      const fraction = i / (numMarkers - 1)
-      markers.push(addDays(min, Math.round(fraction * totalDays)))
+    for (let i = 0; i <= totalDays; i++) {
+      markers.push(addDays(min, i))
     }
 
     return { minDate: min, maxDate: max, totalDays, markers }
@@ -41,6 +40,31 @@ function MiniGantt({ tareas, proyectosData }) {
     const today = new Date()
     if (today >= minDate && today <= addDays(minDate, totalDays)) return getPerc(today)
     return null
+  }, [minDate, totalDays])
+
+  // Agrupación por semanas del año (ISO) para el indicador visual de semana
+  const semanas = useMemo(() => {
+    const result = []
+    const limite = addDays(minDate, totalDays)
+    let cursor = startOfWeek(minDate, { weekStartsOn: 1 })
+
+    while (cursor <= limite) {
+      const weekStart = cursor
+      const weekEndExclusivo = addDays(weekStart, 7)
+      const clampedStart = weekStart < minDate ? minDate : weekStart
+      const clampedEnd = weekEndExclusivo > limite ? limite : weekEndExclusivo
+
+      result.push({
+        weekNumber: getISOWeek(weekStart),
+        showBoundary: weekStart > minDate,
+        boundaryPos: getPerc(weekStart),
+        left: getPerc(clampedStart),
+        right: getPerc(clampedEnd)
+      })
+
+      cursor = addDays(cursor, 7)
+    }
+    return result
   }, [minDate, totalDays])
 
   const validTareas = useMemo(() => tareas.filter(t => {
@@ -158,14 +182,33 @@ function MiniGantt({ tareas, proyectosData }) {
       {/* Gantt table */}
       <div className="border border-white/5 rounded-xl bg-surface-700/20 overflow-hidden">
         <div className="overflow-x-auto">
-          <div className="min-w-[700px] relative">
+          <div className="relative" style={{ minWidth: `${Math.max(700, 300 + markers.length * 42)}px` }}>
 
             {/* Vertical guides + today line */}
             <div className="absolute inset-0 left-[300px] pointer-events-none flex justify-between z-0">
               {markers.map((_, idx) => <div key={idx} className="w-px h-full border-l border-white/[0.03]" />)}
+              {semanas.map((sem, idx) => sem.showBoundary && (
+                <div key={`sem-${idx}`} className="absolute top-0 bottom-0 w-px bg-indigo-400/40 z-10" style={{ left: `${sem.boundaryPos}%` }} />
+              ))}
               {todayPosition !== null && (
                 <div className="absolute top-0 bottom-0 w-0.5 border-l-2 border-dashed border-rose-500/50 z-20" style={{ left: `${todayPosition}%` }} />
               )}
+            </div>
+
+            {/* Week-of-year indicator row */}
+            <div className="grid grid-cols-[300px_1fr] bg-surface-800/80 border-b border-white/5 items-stretch text-[10px] font-medium uppercase tracking-wider text-slate-500 z-10 relative">
+              <div className="px-4 border-r border-white/5 flex items-center h-6">Semana del año</div>
+              <div className="relative h-6">
+                {semanas.map((sem, idx) => (
+                  <div
+                    key={idx}
+                    className="absolute top-0 bottom-0 flex items-center justify-center border-l border-indigo-400/30 first:border-l-0 overflow-hidden"
+                    style={{ left: `${sem.left}%`, width: `${sem.right - sem.left}%` }}
+                  >
+                    <span className="text-[8px] font-bold text-indigo-300 tracking-wider truncate px-1">Sem {sem.weekNumber}</span>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* Header */}
