@@ -5,7 +5,6 @@ import MiDia from './views/MiDia'
 import ProyectosYTareas from './views/ProyectosYTareas'
 import Gantt from './views/Gantt'
 import BugsTracker from './views/BugsTracker'
-import Historias from './views/Historias'
 import Reports from './views/Reports'
 
 function Layout() {
@@ -16,7 +15,6 @@ function Layout() {
     proyectos: <ProyectosYTareas />,
     gantt: <Gantt />,
     bugs: <BugsTracker />,
-    historias: <Historias />,
     reports: <Reports />,
   }
 

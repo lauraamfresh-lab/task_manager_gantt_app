@@ -1,13 +1,12 @@
 import React from 'react'
-import { Sun, LayoutList, BarChart2, Zap, BookOpen, ClipboardList } from 'lucide-react'
+import { Sun, LayoutList, BarChart2, Zap, ClipboardList } from 'lucide-react'
 import { LayoutDashboard, FolderKanban, Calendar, Bug } from 'lucide-react'
 
 const VIEWS = [
   { id: 'midia',     label: 'Mi Día',               icon: Sun },
-  { id: 'proyectos', label: 'Proyectos y Tareas',   icon: LayoutList },
+  { id: 'proyectos', label: 'Proyectos, Tareas y Reqs', icon: LayoutList },
   { id: 'gantt',     label: 'Gantt',                icon: BarChart2 },
   { id: 'bugs',      label: 'Bugs / Errores',       icon: Bug },
-  { id: 'historias', label: 'Historias / Reqs',     icon: BookOpen },
   { id: 'reports',   label: 'Informes',             icon: ClipboardList },
 ]
 
