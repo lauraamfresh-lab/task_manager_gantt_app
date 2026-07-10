@@ -225,12 +225,14 @@ function MiniGantt({ tareas, proyectosData }) {
 
 // ─── Requirement row with Drag and Drop Support ───
 
-function RequisitoRow({ h, tareas }) {
+function RequisitoRow({ h, tareas, sprints }) {
   const [expanded, setExpanded] = useState(false)
 
   const tareasVinculadas = tareas.filter(t =>
     t.historia && t.historia.trim() !== '' && t.titulo.toLowerCase().includes(h.titulo.toLowerCase().slice(0, 20))
   )
+
+  const sprintName = (sprints || []).find(s => s.id === h.sprintId)?.nombre
 
   const isOverdue = h.fechaLimite && !h.completada && new Date(h.fechaLimite) < new Date()
 
@@ -257,9 +259,16 @@ function RequisitoRow({ h, tareas }) {
             }
           </div>
           <div className="min-w-0">
-            <p className={`text-sm font-medium truncate ${h.completada ? 'line-through text-slate-500' : 'text-slate-200'}`}>
-              {h.titulo}
-            </p>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <p className={`text-sm font-medium truncate ${h.completada ? 'line-through text-slate-500' : 'text-slate-200'}`}>
+                {h.titulo}
+              </p>
+              {sprintName && (
+                <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-400 border border-violet-500/30 shrink-0">
+                  {sprintName}
+                </span>
+              )}
+            </div>
             {h.descripcion && (
               <p className="text-[10px] text-slate-500 truncate mt-0.5">{h.descripcion}</p>
             )}
@@ -306,9 +315,9 @@ function RequisitoRow({ h, tareas }) {
           <p className="text-xs text-slate-400 leading-relaxed whitespace-pre-wrap bg-surface-800/40 rounded-lg p-3 border border-white/5">
             {h.descripcion}
           </p>
-          {h.sprintId && (
+          {sprintName && (
             <p className="text-[10px] mt-1 text-violet-400 font-medium">
-              Asignado a: {h.sprintId}
+              Asignado a: {sprintName}
             </p>
           )}
           {tareasVinculadas.length > 0 && (
@@ -638,36 +647,27 @@ function ProjectReportCard({ proyecto, historias, tareas }) {
               </form>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {sprintsProyecto.map(sprint => {
-                const historiasDelSprint = historias.filter(h => h.sprintId === sprint.id)
-                return (
-                  <SprintBlock
-                    key={sprint.id}
-                    sprint={sprint}
-                    historiasSprint={historiasDelSprint}
-                    onDrop={handleDropRequisito}
-                    onDragOver={handleDragOver}
-                    onEdit={handleEditSprint}
-                    onDelete={handleDeleteSprint}
-                  />
-                )
-              })}
-
-              {(() => {
-                // Mejora: Si un sprint se borra, sus requerimientos vuelven automáticamente aquí
-                const activeSprintIds = new Set(sprintsProyecto.map(s => s.id))
-                const historiasBacklog = historias.filter(h => !h.sprintId || !activeSprintIds.has(h.sprintId))
-                return (
-                  <SprintBlock
-                    sprint={{ nombre: 'Backlog' }}
-                    historiasSprint={historiasBacklog}
-                    onDrop={handleDropRequisito}
-                    onDragOver={handleDragOver}
-                    isBacklog={true}
-                  />
-                )
-              })()}
+            <div className="flex flex-col gap-3">
+              {sprintsProyecto.length === 0 ? (
+                <p className="text-[11px] text-slate-500 italic text-center py-2">
+                  Aún no hay sprints creados para este proyecto.
+                </p>
+              ) : (
+                sprintsProyecto.map(sprint => {
+                  const historiasDelSprint = historias.filter(h => h.sprintId === sprint.id)
+                  return (
+                    <SprintBlock
+                      key={sprint.id}
+                      sprint={sprint}
+                      historiasSprint={historiasDelSprint}
+                      onDrop={handleDropRequisito}
+                      onDragOver={handleDragOver}
+                      onEdit={handleEditSprint}
+                      onDelete={handleDeleteSprint}
+                    />
+                  )
+                })
+              )}
             </div>
           </div>
 
@@ -702,7 +702,7 @@ function ProjectReportCard({ proyecto, historias, tareas }) {
                 <p className="text-xs text-slate-500 italic px-2 py-4 text-center">No hay requerimientos que coincidan con los filtros.</p>
               ) : (
                 historiasProcesadas.map(h => (
-                  <RequisitoRow key={h.id} h={h} tareas={tareas} />
+                  <RequisitoRow key={h.id} h={h} tareas={tareas} sprints={sprintsProyecto} />
                 ))
               )}
             </div>

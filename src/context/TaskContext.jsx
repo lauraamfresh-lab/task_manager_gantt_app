@@ -238,6 +238,33 @@ function reducer(state, action) {
             : tarea
         )
       };
+
+    case 'UPDATE_HISTORIA_SPRINT':
+      return {
+        ...state,
+        historias: (state.historias || []).map(h =>
+          h.id === action.payload.historiaId
+            ? { ...h, sprintId: action.payload.sprintId }
+            : h
+        )
+      };
+
+    case 'UPDATE_SPRINT':
+      return {
+        ...state,
+        sprints: (state.sprints || []).map(s =>
+          s.id === action.payload.id ? { ...s, nombre: action.payload.nombre } : s
+        )
+      };
+
+    case 'DELETE_SPRINT':
+      return {
+        ...state,
+        sprints: (state.sprints || []).filter(s => s.id !== action.payload),
+        historias: (state.historias || []).map(h =>
+          h.sprintId === action.payload ? { ...h, sprintId: null } : h
+        )
+      };
     // =============================
     
     default:
