@@ -1,11 +1,32 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useRef } from 'react'
 import { format, parseISO, differenceInDays, addDays, startOfWeek, getISOWeek } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { BarChart2, Filter, Tag, ChevronDown, ChevronRight, ChevronLeft, Calendar } from 'lucide-react'
 import { useTask, ESTADO_CONFIG, getEtiquetaColor, ETIQUETAS_OPCIONES, getProjectColor } from '../context/TaskContext'
 
+// Selector de responsable editable directamente desde la fila del Gantt.
+// Usa UPDATE_TASK, que el reducer ya propaga automáticamente a la historia vinculada (Informes).
+function ResponsableSelect({ tarea }) {
+  const { dispatch } = useTask()
+  const tagColor = getEtiquetaColor(tarea.etiqueta)
+  return (
+    <select
+      value={tarea.etiqueta || ''}
+      onChange={(e) => dispatch({ type: 'UPDATE_TASK', payload: { id: tarea.id, etiqueta: e.target.value } })}
+      onClick={(e) => e.stopPropagation()}
+      title="Cambiar responsable"
+      className="text-[10px] font-semibold rounded-full pl-2 pr-1 py-1 border cursor-pointer focus:outline-none transition-all bg-transparent shrink-0"
+      style={{ color: tagColor.accent, borderColor: `${tagColor.accent}60` }}
+    >
+      {ETIQUETAS_OPCIONES.map((opt) => (
+        <option key={opt} value={opt} className="bg-surface-700 text-slate-200">{opt}</option>
+      ))}
+    </select>
+  )
+}
+
 export default function Gantt() {
-  const { state } = useTask()
+  const { state, dispatch } = useTask()
   
   // Extraemos de forma segura los datos para evitar fallos si el state aún no ha cargado
   const tareasData = useMemo(() => state?.tareas || [], [state?.tareas])
@@ -127,6 +148,54 @@ export default function Gantt() {
       .sort((a, b) => parseISO(a.fechaInicio).getTime() - parseISO(b.fechaInicio).getTime())
   }, [validTareas])
 
+  // --- Drag and drop para reprogramar tareas arrastrando la barra ---
+  // Usamos una referencia fija a la zona del timeline (no a la fila) para que el
+  // drop funcione sin importar en qué fila termines soltando verticalmente.
+  const timelineRef = useRef(null)
+
+  const handleDragStartBarra = (e, tarea) => {
+    const rect = timelineRef.current.getBoundingClientRect()
+    const grabXPercent = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width))
+    const grabDate = addDays(minDate, Math.round(grabXPercent * totalDays))
+    const grabOffsetDays = differenceInDays(grabDate, parseISO(tarea.fechaInicio))
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', JSON.stringify({ id: tarea.id, grabOffsetDays }))
+  }
+
+  const handleDragOverGantt = (e) => e.preventDefault()
+
+  const handleDropGantt = (e) => {
+    e.preventDefault()
+    let payload
+    try { payload = JSON.parse(e.dataTransfer.getData('text/plain')) } catch { return }
+    if (!payload || !payload.id) return
+
+    const tarea = tareasData.find(t => t.id === payload.id)
+    if (!tarea || !tarea.fechaInicio) return
+
+    const rect = timelineRef.current.getBoundingClientRect()
+    const dropXPercent = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width))
+    const dropDate = addDays(minDate, Math.round(dropXPercent * totalDays))
+    const newStart = addDays(dropDate, -payload.grabOffsetDays)
+
+    const originalStart = parseISO(tarea.fechaInicio)
+    const originalEnd = tarea.fechaVencimiento ? parseISO(tarea.fechaVencimiento) : addDays(originalStart, 1)
+    const duracionDias = differenceInDays(originalEnd, originalStart)
+    const newEnd = addDays(newStart, duracionDias)
+
+    // UPDATE_TASK ya sincroniza automáticamente fechaLimite/responsable con la
+    // historia vinculada (si la tarea tiene historiaId), así que el cambio se
+    // refleja también en Informes sin lógica adicional aquí.
+    dispatch({
+      type: 'UPDATE_TASK',
+      payload: {
+        id: tarea.id,
+        fechaInicio: format(newStart, 'yyyy-MM-dd'),
+        fechaVencimiento: format(newEnd, 'yyyy-MM-dd')
+      }
+    })
+  }
+
   const renderFilaGantt = (tarea) => {
     const start = parseISO(tarea.fechaInicio)
     let end = tarea.fechaVencimiento ? parseISO(tarea.fechaVencimiento) : addDays(start, 1)
@@ -142,7 +211,7 @@ export default function Gantt() {
     
     return (
       <div key={tarea.id} className="grid grid-cols-[480px_1fr] items-center hover:bg-white/[0.02] transition-colors min-h-[56px] py-2 relative z-10 border-b border-white/[0.02]">
-        <div className="px-5 pr-4 flex items-center justify-between gap-4 border-r border-white/5 h-full">
+        <div className="px-5 pr-4 flex items-center justify-between gap-3 border-r border-white/5 h-full">
           <div className="flex items-center gap-4 flex-1 min-w-0">
             
             <span 
@@ -157,14 +226,19 @@ export default function Gantt() {
             </span>
           </div>
           
-          <span className={`text-[10px] font-medium rounded-full px-2 py-0.5 border shrink-0 uppercase tracking-wider ${cfg.bg} ${cfg.color} ${cfg.border}`}>
-            {tarea.estado === 'In Progress' ? 'Progreso' : tarea.estado}
-          </span>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <ResponsableSelect tarea={tarea} />
+            <span className={`text-[10px] font-medium rounded-full px-2 py-0.5 border shrink-0 uppercase tracking-wider ${cfg.bg} ${cfg.color} ${cfg.border}`}>
+              {tarea.estado === 'In Progress' ? 'Progreso' : tarea.estado}
+            </span>
+          </div>
         </div>
 
         <div className="relative h-full w-full flex items-center px-4">
           <div 
-            className="absolute h-6 rounded-lg flex items-center px-2 shadow-md border cursor-default overflow-hidden transition-all duration-150"
+            draggable
+            onDragStart={(e) => handleDragStartBarra(e, tarea)}
+            className="absolute h-6 rounded-lg flex items-center px-2 shadow-md border cursor-grab active:cursor-grabbing overflow-hidden transition-all duration-150"
             style={{ 
               left: `${barLeft}%`, 
               width: `${barWidth}%`,
@@ -172,7 +246,7 @@ export default function Gantt() {
               borderColor: `${tagColor.accent}60`,
               borderWidth: '1px'
             }}
-            title={`${tarea.titulo} [Proyecto: ${tarea.proyecto}] [Etiqueta: ${tarea.etiqueta || 'Ninguna'}]`}
+            title={`${tarea.titulo} [Proyecto: ${tarea.proyecto}] [Etiqueta: ${tarea.etiqueta || 'Ninguna'}] · Arrastra para reprogramar`}
           >
             <div 
               className="absolute left-0 top-0 bottom-0 opacity-40"
@@ -303,11 +377,20 @@ export default function Gantt() {
         </div>
       </div>
 
+      <p className="text-[11px] text-slate-500 mb-3 -mt-2">
+        💡 Arrastra las barras para reprogramar fechas, o cambia el responsable directamente desde el desplegable de cada tarea. Los cambios se reflejan en Proyectos, Tareas y Reqs, e Informes.
+      </p>
+
       <div className="border border-white/5 rounded-2xl bg-surface-700/30 overflow-hidden shadow-2xl">
         <div className="overflow-x-auto">
-          <div className="relative" style={{ minWidth: `${Math.max(1100, 480 + markers.length * 52)}px` }}>
+          <div
+            className="relative"
+            style={{ minWidth: `${Math.max(1100, 480 + markers.length * 52)}px` }}
+            onDragOver={handleDragOverGantt}
+            onDrop={handleDropGantt}
+          >
             
-            <div className="absolute inset-0 left-[480px] pointer-events-none flex justify-between z-0">
+            <div ref={timelineRef} className="absolute inset-0 left-[480px] pointer-events-none flex justify-between z-0">
               {markers.map((_, idx) => <div key={idx} className="w-px h-full border-l border-white/[0.03]" />)}
               {semanas.map((sem, idx) => sem.showBoundary && (
                 <div key={`sem-${idx}`} className="absolute top-0 bottom-0 w-px bg-indigo-400/40 z-10" style={{ left: `${sem.boundaryPos}%` }} />

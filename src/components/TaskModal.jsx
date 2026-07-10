@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { X, FileText, Calendar, Tag, Briefcase, Link2 } from 'lucide-react'
 import { useTask, ESTADOS, ETIQUETAS_OPCIONES } from '../context/TaskContext'
 
-export default function TaskModal({ editTask, initialProyecto, onClose, onSave }) {
+export default function TaskModal({ editTask, initialProyecto, onClose }) {
   const { state, dispatch } = useTask()
   
   const [titulo, setTitulo] = useState('')
@@ -13,7 +13,6 @@ export default function TaskModal({ editTask, initialProyecto, onClose, onSave }
   const [etiqueta, setEtiqueta] = useState('Laura')
   const [notes, setNotas] = useState('')
   const [linkDocumento, setLinkDocumento] = useState('')
-  const [sincronizarHistoria, setSincronizarHistoria] = useState(false)
 
   useEffect(() => {
     if (state.proyectos.length > 0) {
@@ -29,7 +28,6 @@ export default function TaskModal({ editTask, initialProyecto, onClose, onSave }
       setEtiqueta(editTask.etiqueta || 'Laura')
       setNotas(editTask.notas || '')
       setLinkDocumento(editTask.linkDocumento || '')
-      setSincronizarHistoria(!!editTask.historia)
     }
   }, [editTask, initialProyecto, state.proyectos])
 
@@ -45,11 +43,12 @@ export default function TaskModal({ editTask, initialProyecto, onClose, onSave }
       fechaVencimiento: fechaVencimiento || null,
       etiqueta,
       notas: notes.trim(),
-      linkDocumento: linkDocumento.trim() || null,
-      historia: sincronizarHistoria ? notes.trim() : null
+      linkDocumento: linkDocumento.trim() || null
     }
 
     if (editTask) {
+      // No incluimos "historia" aquí a propósito: si la tarea ya tenía un
+      // requerimiento vinculado (creado desde Proyectos, Tareas y Reqs), se preserva tal cual.
       dispatch({ type: 'UPDATE_TASK', payload: { id: editTask.id, ...taskData } })
     } else {
       dispatch({
@@ -58,13 +57,10 @@ export default function TaskModal({ editTask, initialProyecto, onClose, onSave }
           id: Date.now().toString(),
           enMiDia: false,
           checklist: [],
+          historia: null,
           ...taskData
         }
       })
-      
-      if (sincronizarHistoria && onSave) {
-        onSave(taskData)
-      }
     }
     onClose()
   }
@@ -177,25 +173,11 @@ export default function TaskModal({ editTask, initialProyecto, onClose, onSave }
           </div>
 
           <div className="space-y-1.5 bg-surface-750 p-3.5 rounded-xl border border-white/5">
-            <div className="flex justify-between items-center mb-1">
-              <label className="text-xs font-semibold uppercase tracking-wider text-accent-violet flex items-center gap-1.5">
-                <FileText size={13} /> Requerimiento o Notas
-              </label>
-              
-              {!editTask && (
-                <label className="flex items-center gap-1.5 text-[11px] text-slate-400 cursor-pointer select-none">
-                  <input 
-                    type="checkbox" 
-                    checked={sincronizarHistoria} 
-                    onChange={(e) => setSincronizarHistoria(e.target.checked)}
-                    className="accent-accent-violet rounded"
-                  />
-                  ¿Duplicar en módulo Historias?
-                </label>
-              )}
-            </div>
+            <label className="text-xs font-semibold uppercase tracking-wider text-accent-violet flex items-center gap-1.5">
+              <FileText size={13} /> Notas
+            </label>
             <textarea
-              placeholder="Como [usuario], quiero [acción] para [beneficio]... o detalles de la tarea."
+              placeholder="Detalles, contexto o comentarios sobre la tarea..."
               value={notes}
               onChange={(e) => setNotas(e.target.value)}
               className="w-full h-24 bg-surface-700/60 text-xs text-slate-300 placeholder-slate-600 border border-white/5 rounded-lg p-3 focus:outline-none focus:border-accent-violet/40 resize-none leading-relaxed"

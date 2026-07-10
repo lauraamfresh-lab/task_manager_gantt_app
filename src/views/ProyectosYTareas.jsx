@@ -796,22 +796,6 @@ export default function ProyectosYTareas() {
   state.proyectos.forEach(p => { grouped[p.nombre] = [] })
   state.tareas.forEach(t => { if (grouped[t.proyecto]) grouped[t.proyecto].push(t) })
 
-  const interceptarNuevaTarea = (nuevaTarea) => {
-    if (nuevaTarea.historia && nuevaTarea.historia.trim() !== '') {
-      const projObj = state.proyectos.find(p => p.nombre === nuevaTarea.proyecto)
-      if (projObj && projObj.tipo === 'Proyecto') {
-        dispatch({
-          type: 'ADD_STORY',
-          payload: {
-            proyecto: nuevaTarea.proyecto,
-            titulo: `Req: ${nuevaTarea.titulo}`,
-            descripcion: nuevaTarea.historia
-          }
-        })
-      }
-    }
-  }
-
   const abrirEdicionProyecto = (nombreProyecto) => {
     const target = state.proyectos.find(p => p.nombre === nombreProyecto)
     setEditProjectObj(target)
@@ -883,14 +867,14 @@ export default function ProyectosYTareas() {
         </div>
       </div>
 
-      {addModal && <TaskModal onClose={() => setAddModal(false)} onSave={interceptarNuevaTarea} />}
+      {addModal && <TaskModal onClose={() => setAddModal(false)} />}
       {projectModal && (
         <ProjectModal 
           onClose={() => { setProjectModal(false); setEditProjectObj(null); }} 
           editProject={editProjectObj} 
         />
       )}
-      {modal && !modal.editTask && <TaskModal initialProyecto={modal.proyecto} onClose={() => setModal(null)} onSave={interceptarNuevaTarea} />}
+      {modal && !modal.editTask && <TaskModal initialProyecto={modal.proyecto} onClose={() => setModal(null)} />}
       {modal?.editTask && <TaskModal editTask={modal.editTask} onClose={() => setModal(null)} />}
     </div>
   )
