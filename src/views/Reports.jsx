@@ -439,15 +439,31 @@ function SprintBlock({ sprint, historiasSprint, onDrop, onDragOver, isBacklog = 
             historiasSprint.map(h => (
               <div
                 key={h.id}
-                className="flex items-center justify-between gap-3 bg-surface-900/60 border border-white/[0.03] p-2 rounded-lg"
+                className="flex items-center justify-between gap-3 bg-surface-900/60 border border-white/[0.03] p-2 rounded-lg flex-wrap"
               >
-                <div className="flex items-center gap-2 min-w-0">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
                   {h.completada ? <Check size={12} className="text-emerald-400 shrink-0" /> : <Circle size={12} className="text-slate-600 shrink-0" />}
                   <span className={`text-xs truncate ${h.completada ? 'line-through text-slate-500 opacity-60' : 'text-slate-300'}`}>
                     {h.titulo}
                   </span>
                 </div>
-                {h.fechaLimite && <span className="text-[9px] font-mono text-slate-500 shrink-0">{h.fechaLimite}</span>}
+                <div className="flex items-center gap-2 shrink-0">
+                  {h.completada ? (
+                    <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
+                      <Check size={8} /> Completado
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 font-medium">
+                      <Clock size={8} /> Pendiente
+                    </span>
+                  )}
+                  {h.responsable && (
+                    <span className="text-[9px] text-slate-400 flex items-center gap-1">
+                      <User size={9} className="text-slate-500" /> {h.responsable}
+                    </span>
+                  )}
+                  {h.fechaLimite && <span className="text-[9px] font-mono text-slate-500">{h.fechaLimite}</span>}
+                </div>
               </div>
             ))
           )}
@@ -462,7 +478,9 @@ function SprintBlock({ sprint, historiasSprint, onDrop, onDragOver, isBacklog = 
 function ProjectReportCard({ proyecto, historias, tareas }) {
   const [collapsed, setCollapsed] = useState(true)
   const [showGantt, setShowGantt] = useState(false)
-  const [showSprints, setShowSprints] = useState(false)
+  const [showSprints, setShowSprints] = useState(true)
+  const [showRequerimientos, setShowRequerimientos] = useState(false)
+  const [mostrarAsignados, setMostrarAsignados] = useState(false)
   const [nuevoSprintNombre, setNuevoSprintNombre] = useState('')
   const [creandoSprint, setCreandoSprint] = useState(false)
   const [ocultarCompletados, setOcultarCompletados] = useState(false)
@@ -509,6 +527,21 @@ function ProjectReportCard({ proyecto, historias, tareas }) {
     }
     return list
   }, [historias, ocultarCompletados, sortBy])
+
+  const activeSprintIds = useMemo(() =>
+    new Set(sprintsProyecto.map(s => s.id)),
+    [sprintsProyecto]
+  )
+
+  const historiasSinAsignar = useMemo(() =>
+    historiasProcesadas.filter(h => !h.sprintId || !activeSprintIds.has(h.sprintId)),
+    [historiasProcesadas, activeSprintIds]
+  )
+
+  const historiasAsignadas = useMemo(() =>
+    historiasProcesadas.filter(h => h.sprintId && activeSprintIds.has(h.sprintId)),
+    [historiasProcesadas, activeSprintIds]
+  )
 
   // --- HTML5 Native Drag and Drop de Requerimientos ---
   const handleDragOver = (e) => {
@@ -618,12 +651,20 @@ function ProjectReportCard({ proyecto, historias, tareas }) {
 
           {/* Sprints Panel at top of project for planning mapping */}
           <div className="bg-surface-800/20 p-4 border border-white/5 rounded-xl space-y-3">
-            <div className="flex items-center justify-between gap-3 border-b border-white/5 pb-2">
+            <div
+              className="flex items-center justify-between gap-3 border-b border-white/5 pb-2 cursor-pointer select-none"
+              onClick={() => setShowSprints(!showSprints)}
+            >
               <span className="text-xs font-bold text-slate-400 flex items-center gap-1.5">
+                {showSprints ? <ChevronDown size={14} className="text-slate-500" /> : <ChevronRight size={14} className="text-slate-500" />}
                 <Layers size={14} className="text-violet-400" /> Planificar Sprints por Proyecto (Arrastra requerimientos abajo)
               </span>
               <button
-                onClick={() => setCreandoSprint(!creandoSprint)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setShowSprints(true)
+                  setCreandoSprint(!creandoSprint)
+                }}
                 className="flex items-center gap-1 text-[11px] font-semibold text-violet-400 hover:text-violet-300 transition-colors bg-violet-500/10 border border-violet-500/20 px-2 py-1 rounded"
               >
                 <Plus size={12} />
@@ -631,82 +672,129 @@ function ProjectReportCard({ proyecto, historias, tareas }) {
               </button>
             </div>
 
-            {creandoSprint && (
-              <form onSubmit={handleCrearSprint} className="flex items-center gap-2 max-w-sm animate-fade-in">
-                <input
-                  type="text"
-                  placeholder="Ej: Sprint 1, Fase MVP..."
-                  value={nuevoSprintNombre}
-                  onChange={(e) => setNuevoSprintNombre(e.target.value)}
-                  className="bg-surface-900 text-xs px-2.5 py-1.5 rounded border border-white/10 outline-none text-slate-200 focus:border-violet-500 flex-1"
-                  autoFocus
-                />
-                <button type="submit" className="text-xs font-semibold px-2.5 py-1.5 bg-violet-600 hover:bg-violet-500 text-white rounded transition-colors">
-                  Guardar
-                </button>
-              </form>
-            )}
-
-            <div className="flex flex-col gap-3">
-              {sprintsProyecto.length === 0 ? (
-                <p className="text-[11px] text-slate-500 italic text-center py-2">
-                  Aún no hay sprints creados para este proyecto.
-                </p>
-              ) : (
-                sprintsProyecto.map(sprint => {
-                  const historiasDelSprint = historias.filter(h => h.sprintId === sprint.id)
-                  return (
-                    <SprintBlock
-                      key={sprint.id}
-                      sprint={sprint}
-                      historiasSprint={historiasDelSprint}
-                      onDrop={handleDropRequisito}
-                      onDragOver={handleDragOver}
-                      onEdit={handleEditSprint}
-                      onDelete={handleDeleteSprint}
+            {showSprints && (
+              <>
+                {creandoSprint && (
+                  <form onSubmit={handleCrearSprint} className="flex items-center gap-2 max-w-sm animate-fade-in">
+                    <input
+                      type="text"
+                      placeholder="Ej: Sprint 1, Fase MVP..."
+                      value={nuevoSprintNombre}
+                      onChange={(e) => setNuevoSprintNombre(e.target.value)}
+                      className="bg-surface-900 text-xs px-2.5 py-1.5 rounded border border-white/10 outline-none text-slate-200 focus:border-violet-500 flex-1"
+                      autoFocus
                     />
-                  )
-                })
-              )}
-            </div>
+                    <button type="submit" className="text-xs font-semibold px-2.5 py-1.5 bg-violet-600 hover:bg-violet-500 text-white rounded transition-colors">
+                      Guardar
+                    </button>
+                  </form>
+                )}
+
+                <div className="flex flex-col gap-3">
+                  {sprintsProyecto.length === 0 ? (
+                    <p className="text-[11px] text-slate-500 italic text-center py-2">
+                      Aún no hay sprints creados para este proyecto.
+                    </p>
+                  ) : (
+                    sprintsProyecto.map(sprint => {
+                      const historiasDelSprint = historias.filter(h => h.sprintId === sprint.id)
+                      return (
+                        <SprintBlock
+                          key={sprint.id}
+                          sprint={sprint}
+                          historiasSprint={historiasDelSprint}
+                          onDrop={handleDropRequisito}
+                          onDragOver={handleDragOver}
+                          onEdit={handleEditSprint}
+                          onDelete={handleDeleteSprint}
+                        />
+                      )
+                    })
+                  )}
+                </div>
+              </>
+            )}
           </div>
 
           {/* Requirements table */}
-          {historias.length === 0 ? (
-            <p className="text-xs text-slate-500 italic px-2 py-4 text-center">Sin requerimientos para este proyecto.</p>
-          ) : (
-            <div className="rounded-xl border border-white/5 overflow-hidden bg-surface-700/20">
-              {/* Table header */}
-              <div className="grid grid-cols-[1fr_120px_110px_90px] px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500 bg-surface-800/40 border-b border-white/5 select-none">
-                <div>Requerimiento</div>
-                <div 
-                  className={`cursor-pointer hover:text-slate-300 transition-colors flex items-center gap-1 ${sortBy === 'estado' ? 'text-accent-violet font-bold' : ''}`}
-                  onClick={() => setSortBy(sortBy === 'estado' ? null : 'estado')}
-                >
-                  Estado {sortBy === 'estado' && '↕'}
-                </div>
-                <div 
-                  className={`cursor-pointer hover:text-slate-300 transition-colors flex items-center gap-1 ${sortBy === 'fecha' ? 'text-accent-violet font-bold' : ''}`}
-                  onClick={() => setSortBy(sortBy === 'fecha' ? null : 'fecha')}
-                >
-                  <Calendar size={9} /> Fecha Límite {sortBy === 'fecha' && '↕'}
-                </div>
-                <div 
-                  className={`cursor-pointer hover:text-slate-300 transition-colors flex items-center gap-1 ${sortBy === 'responsable' ? 'text-accent-violet font-bold' : ''}`}
-                  onClick={() => setSortBy(sortBy === 'responsable' ? null : 'responsable')}
-                >
-                  <User size={9} /> Responsable {sortBy === 'responsable' && '↕'}
-                </div>
-              </div>
-              {historiasProcesadas.length === 0 ? (
-                <p className="text-xs text-slate-500 italic px-2 py-4 text-center">No hay requerimientos que coincidan con los filtros.</p>
-              ) : (
-                historiasProcesadas.map(h => (
-                  <RequisitoRow key={h.id} h={h} tareas={tareas} sprints={sprintsProyecto} />
-                ))
-              )}
+          <div className="bg-surface-800/20 border border-white/5 rounded-xl overflow-hidden">
+            <div
+              className="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer select-none hover:bg-white/[0.02] transition-colors"
+              onClick={() => setShowRequerimientos(!showRequerimientos)}
+            >
+              <span className="text-xs font-bold text-slate-400 flex items-center gap-1.5">
+                {showRequerimientos ? <ChevronDown size={14} className="text-slate-500" /> : <ChevronRight size={14} className="text-slate-500" />}
+                <ClipboardList size={14} className="text-violet-400" /> Requerimientos ({total})
+              </span>
             </div>
-          )}
+
+            {showRequerimientos && (
+              <div className="px-4 pb-4 animate-fade-in">
+                {historias.length === 0 ? (
+                  <p className="text-xs text-slate-500 italic px-2 py-4 text-center">Sin requerimientos para este proyecto.</p>
+                ) : (
+                  <div className="rounded-xl border border-white/5 overflow-hidden bg-surface-700/20">
+                    {/* Table header */}
+                    <div className="grid grid-cols-[1fr_120px_110px_90px] px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500 bg-surface-800/40 border-b border-white/5 select-none">
+                      <div>Requerimiento</div>
+                      <div 
+                        className={`cursor-pointer hover:text-slate-300 transition-colors flex items-center gap-1 ${sortBy === 'estado' ? 'text-accent-violet font-bold' : ''}`}
+                        onClick={() => setSortBy(sortBy === 'estado' ? null : 'estado')}
+                      >
+                        Estado {sortBy === 'estado' && '↕'}
+                      </div>
+                      <div 
+                        className={`cursor-pointer hover:text-slate-300 transition-colors flex items-center gap-1 ${sortBy === 'fecha' ? 'text-accent-violet font-bold' : ''}`}
+                        onClick={() => setSortBy(sortBy === 'fecha' ? null : 'fecha')}
+                      >
+                        <Calendar size={9} /> Fecha Límite {sortBy === 'fecha' && '↕'}
+                      </div>
+                      <div 
+                        className={`cursor-pointer hover:text-slate-300 transition-colors flex items-center gap-1 ${sortBy === 'responsable' ? 'text-accent-violet font-bold' : ''}`}
+                        onClick={() => setSortBy(sortBy === 'responsable' ? null : 'responsable')}
+                      >
+                        <User size={9} /> Responsable {sortBy === 'responsable' && '↕'}
+                      </div>
+                    </div>
+                    {historiasSinAsignar.length === 0 && historiasAsignadas.length === 0 ? (
+                      <p className="text-xs text-slate-500 italic px-2 py-4 text-center">No hay requerimientos que coincidan con los filtros.</p>
+                    ) : (
+                      <>
+                        {historiasSinAsignar.length === 0 ? (
+                          <p className="text-xs text-slate-500 italic px-2 py-3 text-center">Todos los requerimientos están asignados a un sprint.</p>
+                        ) : (
+                          historiasSinAsignar.map(h => (
+                            <RequisitoRow key={h.id} h={h} tareas={tareas} sprints={sprintsProyecto} />
+                          ))
+                        )}
+
+                        {historiasAsignadas.length > 0 && (
+                          <div className="bg-[#0e1424]/30">
+                            <div className="flex items-center px-4 py-2 border-t border-white/[0.03]">
+                              <button
+                                onClick={() => setMostrarAsignados(!mostrarAsignados)}
+                                className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-400 hover:text-slate-200 transition-colors py-1 px-2 rounded bg-surface-800/60 border border-white/5"
+                              >
+                                {mostrarAsignados ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                                Asignados a sprint ({historiasAsignadas.length})
+                              </button>
+                            </div>
+                            {mostrarAsignados && (
+                              <div>
+                                {historiasAsignadas.map(h => (
+                                  <RequisitoRow key={h.id} h={h} tareas={tareas} sprints={sprintsProyecto} />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Tasks progress bar */}
           {tareasTotal > 0 && (
