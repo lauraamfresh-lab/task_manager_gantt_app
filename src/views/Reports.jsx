@@ -740,7 +740,7 @@ function ProjectReportCard({ proyecto, historias, tareas }) {
                     </p>
                   ) : (
                     sprintsProyecto.map(sprint => {
-                      const historiasDelSprint = historias.filter(h => h.sprintId === sprint.id)
+                      const historiasDelSprint = historiasProcesadas.filter(h => h.sprintId === sprint.id)
                       return (
                         <SprintBlock
                           key={sprint.id}
