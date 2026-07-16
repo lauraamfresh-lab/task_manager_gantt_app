@@ -11,6 +11,7 @@ import EstadoSelect from '../components/EstadoSelect'
 import PrioridadBadge from '../components/PrioridadBadge'
 import RequisitoModal from '../components/RequisitoModal'
 import ProjectModal from '../components/ProjectModal'
+import MiniGantt from '../components/MiniGantt'
 
 // ─────────────────────────────────────────────────────────────
 // Sub-vista 1: LISTA (antes "Proyectos, Tareas y Reqs")
@@ -697,14 +698,16 @@ function VistaTimeline() {
 // ─────────────────────────────────────────────────────────────
 
 const SEMANAS_VISIBLES = 4
+const MAX_TARJETAS_VISIBLES = 5
 
-// Tarjeta arrastrable de un requisito (se usa tanto en el pool "Sin asignar" como en las celdas del tablero)
-function TarjetaCarga({ requisito, onDragStart }) {
+// Tarjeta de un requisito. En el pool "Sin programar" muestra un desplegable para asignar
+// responsable directamente (sin drag&drop). Dentro del tablero es arrastrable entre semanas.
+function TarjetaCarga({ requisito, draggable = true, onDragStart, showAssign = false, onAssign }) {
   return (
     <div
-      draggable
-      onDragStart={(e) => onDragStart(e, requisito)}
-      className="cursor-grab active:cursor-grabbing bg-surface-800/70 border border-white/[0.05] hover:border-white/15 rounded-lg px-2.5 py-2 space-y-1 transition-colors"
+      draggable={draggable}
+      onDragStart={draggable ? (e) => onDragStart(e, requisito) : undefined}
+      className={`bg-surface-800/70 border border-white/[0.05] hover:border-white/15 rounded-lg px-2.5 py-2 space-y-1.5 transition-colors ${draggable ? 'cursor-grab active:cursor-grabbing' : ''}`}
       title={requisito.titulo}
     >
       <div className="flex items-center justify-between gap-2">
@@ -716,6 +719,79 @@ function TarjetaCarga({ requisito, onDragStart }) {
         <span className={`text-[9px] font-medium rounded-full px-1.5 py-0.5 border shrink-0 ${(ESTADO_CONFIG[requisito.estado] || ESTADO_CONFIG['To Do']).bg} ${(ESTADO_CONFIG[requisito.estado] || ESTADO_CONFIG['To Do']).color} ${(ESTADO_CONFIG[requisito.estado] || ESTADO_CONFIG['To Do']).border}`}>
           {requisito.estado}
         </span>
+      </div>
+      {showAssign && (
+        <select
+          defaultValue=""
+          onChange={(e) => { if (e.target.value) { onAssign(requisito.id, e.target.value); e.target.value = '' } }}
+          className="w-full bg-surface-700 border border-white/10 rounded-md px-2 py-1 text-[10px] text-slate-300 focus:outline-none focus:border-accent-violet/50 cursor-pointer"
+        >
+          <option value="" disabled className="bg-surface-700 text-slate-500">Asignar a...</option>
+          {ETIQUETAS_OPCIONES.map(opt => <option key={opt} value={opt} className="bg-surface-700 text-slate-200">{opt}</option>)}
+        </select>
+      )}
+    </div>
+  )
+}
+
+// Celda de una semana dentro del tablero de una persona: máximo 5 tarjetas visibles, scroll si hay más
+function CeldaSemana({ sem, lista, onDragOver, onDrop, onDragStart }) {
+  return (
+    <div
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      className="border-l border-white/5 first:border-l-0 p-2.5 space-y-2 bg-surface-900/10 hover:bg-white/[0.02] transition-colors"
+    >
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] font-mono text-slate-500 lowercase">
+          {format(sem.inicio, 'dd MMM', { locale: es }).replace('.', '')} – {format(sem.fin, 'dd MMM', { locale: es }).replace('.', '')}
+        </p>
+        {lista.length > MAX_TARJETAS_VISIBLES && (
+          <span className="text-[9px] text-slate-500 font-mono bg-white/5 px-1 py-0.5 rounded">{lista.length}</span>
+        )}
+      </div>
+      <div className={`space-y-2 ${lista.length > MAX_TARJETAS_VISIBLES ? 'max-h-[280px] overflow-y-auto pr-1 custom-scrollbar' : ''}`}>
+        {lista.map(r => <TarjetaCarga key={r.id} requisito={r} onDragStart={onDragStart} />)}
+      </div>
+    </div>
+  )
+}
+
+// Bloque de una persona: tablero de semanas + Gantt filtrado a sus requisitos (colapsado por defecto)
+function PersonaBoard({ responsable, semanas, celda, handleDragOver, handleDropEnCelda, handleDragStartTarjeta, requisitosPersona }) {
+  const [showGantt, setShowGantt] = useState(false)
+  const col = getEtiquetaColor(responsable)
+
+  return (
+    <div className="rounded-2xl border border-white/5 bg-surface-700/40 overflow-hidden shadow-lg">
+      <div className="flex items-center gap-2.5 px-4 py-3 border-b border-white/5 bg-surface-800/40">
+        <span className="w-3 h-3 rounded-full" style={{ backgroundColor: col.accent }} />
+        <h3 className="font-display font-bold text-slate-200 text-sm">{responsable}</h3>
+      </div>
+
+      <div className="grid" style={{ gridTemplateColumns: `repeat(${SEMANAS_VISIBLES}, minmax(0, 1fr))` }}>
+        {semanas.map(sem => (
+          <CeldaSemana
+            key={sem.key}
+            sem={sem}
+            lista={celda(responsable, sem.key)}
+            onDragOver={handleDragOver}
+            onDrop={(e) => handleDropEnCelda(e, responsable, sem.inicio)}
+            onDragStart={handleDragStartTarjeta}
+          />
+        ))}
+      </div>
+
+      <div className="border-t border-white/5 p-3">
+        <button
+          onClick={() => setShowGantt(!showGantt)}
+          className="flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-slate-200 transition-colors py-1.5 px-3 rounded-lg bg-surface-800/50 border border-white/5 hover:border-white/10"
+        >
+          <BarChart2 size={13} className="text-accent-violet" />
+          {showGantt ? `Ocultar Gantt de ${responsable}` : `Ver Gantt de ${responsable}`}
+          {showGantt ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+        </button>
+        {showGantt && <MiniGantt requisitos={requisitosPersona} />}
       </div>
     </div>
   )
@@ -756,6 +832,12 @@ function VistaCarga() {
     const respKey = r.responsable && ETIQUETAS_OPCIONES.includes(r.responsable) ? r.responsable : 'Sin asignar'
     if (respKey !== responsable) return false
     try { return format(startOfWeek(parseISO(r.fechaInicio), { weekStartsOn: 1 }), 'yyyy-MM-dd') === semanaKey } catch { return false }
+  })
+
+  // Requisitos de cada persona para su Gantt individual (todas las fechas, no solo el rango visible)
+  const requisitosPorPersona = (responsable) => (state.requisitos || []).filter(r => {
+    const respKey = r.responsable && ETIQUETAS_OPCIONES.includes(r.responsable) ? r.responsable : 'Sin asignar'
+    return respKey === responsable
   })
 
   const navegar = (dir) => setFechaInicioVista(prev => addDays(prev, dir * 7))
@@ -804,11 +886,24 @@ function VistaCarga() {
     dispatch({ type: 'UPDATE_REQUISITO', payload: { id, fechaInicio: '', fechaVencimiento: '' } })
   }
 
+  // Asignación directa desde el desplegable: responsable + semana actualmente visible (completa, lunes-domingo)
+  const handleAsignarDesdePool = (id, responsable) => {
+    dispatch({
+      type: 'UPDATE_REQUISITO',
+      payload: {
+        id,
+        responsable,
+        fechaInicio: format(rangoInicio, 'yyyy-MM-dd'),
+        fechaVencimiento: format(addDays(rangoInicio, 6), 'yyyy-MM-dd')
+      }
+    })
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <p className="text-xs text-slate-500">
-          Arrastra un requisito de "Sin programar" al tablero de una persona y suéltalo en la semana en la que quieras que trabaje en él.
+          Asigna un responsable desde "Sin programar" para moverlo al tablero (entra en la semana actual). Luego puedes arrastrarlo entre semanas o personas.
         </p>
         <div className="flex items-center gap-1.5 bg-surface-800/90 border border-white/5 p-1 rounded-xl">
           <button type="button" onClick={() => navegar(-1)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors"><ChevronLeft size={14} strokeWidth={2.5} /></button>
@@ -838,7 +933,7 @@ function VistaCarga() {
           ) : (
             sinAsignar.map(r => (
               <div key={r.id} className="w-56">
-                <TarjetaCarga requisito={r} onDragStart={handleDragStartTarjeta} />
+                <TarjetaCarga requisito={r} draggable={false} showAssign onAssign={handleAsignarDesdePool} />
               </div>
             ))
           )}
@@ -847,35 +942,18 @@ function VistaCarga() {
 
       {/* Tablero por persona */}
       <div className="space-y-4">
-        {responsablesTablero.map(responsable => {
-          const col = getEtiquetaColor(responsable)
-          return (
-            <div key={responsable} className="rounded-2xl border border-white/5 bg-surface-700/40 overflow-hidden shadow-lg">
-              <div className="flex items-center gap-2.5 px-4 py-3 border-b border-white/5 bg-surface-800/40">
-                <span className="w-3 h-3 rounded-full" style={{ backgroundColor: col.accent }} />
-                <h3 className="font-display font-bold text-slate-200 text-sm">{responsable}</h3>
-              </div>
-              <div className="grid" style={{ gridTemplateColumns: `repeat(${SEMANAS_VISIBLES}, minmax(0, 1fr))` }}>
-                {semanas.map(sem => {
-                  const lista = celda(responsable, sem.key)
-                  return (
-                    <div
-                      key={sem.key}
-                      onDragOver={handleDragOver}
-                      onDrop={(e) => handleDropEnCelda(e, responsable, sem.inicio)}
-                      className="border-l border-white/5 first:border-l-0 p-2.5 space-y-2 min-h-[110px] bg-surface-900/10 hover:bg-white/[0.02] transition-colors"
-                    >
-                      <p className="text-[10px] font-mono text-slate-500 lowercase">
-                        {format(sem.inicio, 'dd MMM', { locale: es }).replace('.', '')} – {format(sem.fin, 'dd MMM', { locale: es }).replace('.', '')}
-                      </p>
-                      {lista.map(r => <TarjetaCarga key={r.id} requisito={r} onDragStart={handleDragStartTarjeta} />)}
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )
-        })}
+        {responsablesTablero.map(responsable => (
+          <PersonaBoard
+            key={responsable}
+            responsable={responsable}
+            semanas={semanas}
+            celda={celda}
+            handleDragOver={handleDragOver}
+            handleDropEnCelda={handleDropEnCelda}
+            handleDragStartTarjeta={handleDragStartTarjeta}
+            requisitosPersona={requisitosPorPersona(responsable)}
+          />
+        ))}
       </div>
     </div>
   )
