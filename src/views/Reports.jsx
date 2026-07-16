@@ -462,9 +462,11 @@ function ProjectReportCard({ proyecto, requisitos }) {
 
 export default function Reports() {
   const { state } = useApp()
+  const [showOtrosProyectos, setShowOtrosProyectos] = useState(false)
   const proyectosConTipo = state.proyectos.filter(p => p.tipo === 'Proyecto')
-  const proyectosActivos = proyectosConTipo.filter(p => (p.estado || 'Activo') === 'Activo').length
-  const proyectosCompletados = proyectosConTipo.filter(p => p.estado === 'Completado').length
+  const proyectosActivos = proyectosConTipo.filter(p => (p.estado || 'Activo') === 'Activo')
+  const proyectosPausados = proyectosConTipo.filter(p => p.estado === 'En pausa')
+  const proyectosCompletados = proyectosConTipo.filter(p => p.estado === 'Completado')
 
   const totalRequisitos = (state.requisitos || []).length
   const completadosGlobal = (state.requisitos || []).filter(r => r.estado === 'Done').length
@@ -484,18 +486,22 @@ export default function Reports() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
         <div className="bg-surface-700/30 border border-white/5 rounded-xl p-4 text-center">
           <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Proyectos</p>
           <p className="text-2xl font-bold font-mono text-slate-100">{proyectosConTipo.length}</p>
         </div>
         <div className="bg-surface-700/30 border border-white/5 rounded-xl p-4 text-center">
           <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Activos</p>
-          <p className="text-2xl font-bold font-mono text-emerald-400">{proyectosActivos}</p>
+          <p className="text-2xl font-bold font-mono text-emerald-400">{proyectosActivos.length}</p>
+        </div>
+        <div className="bg-surface-700/30 border border-white/5 rounded-xl p-4 text-center">
+          <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">En pausa</p>
+          <p className="text-2xl font-bold font-mono text-amber-400">{proyectosPausados.length}</p>
         </div>
         <div className="bg-surface-700/30 border border-white/5 rounded-xl p-4 text-center">
           <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Proy. Completados</p>
-          <p className="text-2xl font-bold font-mono text-cyan-400">{proyectosCompletados}</p>
+          <p className="text-2xl font-bold font-mono text-cyan-400">{proyectosCompletados.length}</p>
         </div>
         <div className="bg-surface-700/30 border border-white/5 rounded-xl p-4 text-center">
           <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Requisitos</p>
@@ -524,16 +530,58 @@ export default function Reports() {
       )}
 
       <div className="space-y-4">
-        {proyectosConTipo.length === 0 ? (
+        {proyectosActivos.length === 0 ? (
           <div className="py-12 border border-dashed border-white/10 rounded-2xl text-center text-slate-500 text-sm">
-            No hay proyectos creados aún. Crea uno desde "Planificación".
+            No hay proyectos activos. Crea uno o reactiva uno desde "Planificación".
           </div>
         ) : (
-          proyectosConTipo.map(p => (
+          proyectosActivos.map(p => (
             <ProjectReportCard key={p.nombre} proyecto={p.nombre} requisitos={(state.requisitos || []).filter(r => r.proyecto === p.nombre)} />
           ))
         )}
       </div>
+
+      {(proyectosPausados.length > 0 || proyectosCompletados.length > 0) && (
+        <div className="rounded-2xl border border-white/5 bg-surface-800/20 overflow-hidden">
+          <button
+            onClick={() => setShowOtrosProyectos(!showOtrosProyectos)}
+            className="w-full flex items-center justify-between gap-3 px-5 py-3.5 select-none hover:bg-white/[0.02] transition-colors"
+          >
+            <span className="text-sm font-bold text-slate-400 flex items-center gap-2">
+              {showOtrosProyectos ? <ChevronDown size={16} className="text-slate-500" /> : <ChevronRight size={16} className="text-slate-500" />}
+              Otros proyectos
+              <span className="text-[10px] text-slate-500 font-mono bg-white/5 px-2 py-0.5 rounded-md">
+                {proyectosPausados.length + proyectosCompletados.length}
+              </span>
+            </span>
+          </button>
+
+          {showOtrosProyectos && (
+            <div className="px-5 pb-5 space-y-6 animate-fade-in">
+              {proyectosPausados.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="text-xs font-bold text-amber-400 flex items-center gap-1.5">⏸ En pausa ({proyectosPausados.length})</h3>
+                  <div className="space-y-3">
+                    {proyectosPausados.map(p => (
+                      <ProjectReportCard key={p.nombre} proyecto={p.nombre} requisitos={(state.requisitos || []).filter(r => r.proyecto === p.nombre)} />
+                    ))}
+                  </div>
+                </div>
+              )}
+              {proyectosCompletados.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="text-xs font-bold text-cyan-400 flex items-center gap-1.5">✅ Completados ({proyectosCompletados.length})</h3>
+                  <div className="space-y-3">
+                    {proyectosCompletados.map(p => (
+                      <ProjectReportCard key={p.nombre} proyecto={p.nombre} requisitos={(state.requisitos || []).filter(r => r.proyecto === p.nombre)} />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
     </div>
   )
