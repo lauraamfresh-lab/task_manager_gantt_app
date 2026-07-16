@@ -1,15 +1,25 @@
 {
-  "name": "projectflow-app",
-  "version": "1.0.0",
+  "name": "projectflow",
   "private": true,
+  "version": "1.0.0",
+  "type": "module",
   "scripts": {
-    "install:all": "npm install --prefix frontend && npm install --prefix backend",
-    "build": "npm run install:all && npm run build --prefix frontend",
-    "start": "npm start --prefix backend",
-    "dev:frontend": "npm run dev --prefix frontend",
-    "dev:backend": "npm run dev --prefix backend",
-    "prisma:generate": "npm run prisma:generate --prefix backend",
-    "prisma:migrate:deploy": "npm run prisma:migrate:deploy --prefix backend",
-    "seed": "npm run seed --prefix backend"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-google-charts": "^4.0.1",
+    "lucide-react": "^0.383.0",
+    "date-fns": "^3.6.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.4",
+    "vite": "^5.3.1"
   }
 }

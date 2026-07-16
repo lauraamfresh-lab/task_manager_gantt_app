@@ -1,47 +1,57 @@
 # ProjectFlow
 
-Plataforma de gestión de proyectos y tareas para equipos.
+SPA de gestión de proyectos. Dark Mode · React + Vite + Tailwind CSS.
 
-## Estructura
-
-```
-/
-├── frontend/   → SPA React + Vite + Tailwind (UI)
-├── backend/    → API Express + Prisma + PostgreSQL (/api/*)
-├── shared/     → constantes compartidas (estados, prioridades, roles)
-└── package.json
-```
-
-Actualmente el **frontend sigue funcionando con localStorage** (aún no está conectado a la API). La conexión frontend↔backend, sustituyendo el almacenamiento local por llamadas a `/api/*`, es el siguiente paso pendiente de aprobación.
-
-## Desarrollo local
-
-### Backend
+## Setup local
 
 ```bash
-cd backend
+# 1. Entrar al directorio
+cd projectflow
+
+# 2. Instalar dependencias
 npm install
-cp .env.example .env      # y rellena DATABASE_URL / JWT_SECRET
-npm run prisma:migrate:dev
-npm run seed               # crea el usuario ADMIN inicial (usa ADMIN_EMAIL/ADMIN_PASSWORD del .env)
-npm run dev                 # http://localhost:4000
+
+# 3. Servidor de desarrollo
+npm run dev
+# → http://localhost:5173
 ```
 
-### Frontend
+## Build para producción / Netlify
 
 ```bash
-cd frontend
-npm install
-npm run dev                 # http://localhost:5173
+npm run build
+# Genera la carpeta /dist lista para desplegar
 ```
 
-## Build de producción
+## Despliegue en Netlify
 
-Desde la raíz:
+### Opción A — Drag & Drop
+1. Ejecuta `npm run build`
+2. Ve a https://app.netlify.com/drop
+3. Arrastra la carpeta `dist/`
 
+### Opción B — CLI
 ```bash
-npm run build       # instala todo y compila frontend/dist
-npm run start        # arranca el backend, que sirve frontend/dist bajo el mismo dominio
+npm install -g netlify-cli
+netlify login
+netlify deploy --prod --dir=dist
 ```
 
-La guía completa de despliegue en Render (crear el servicio, la base de datos, variables de entorno, migraciones, etc.) se entregará como el último paso, una vez conectado el frontend a la API.
+### Opción C — Git Integration
+1. Sube el proyecto a GitHub
+2. Conecta el repo en Netlify → Build settings:
+   - Build command: `npm run build`
+   - Publish directory: `dist`
+
+## Stack
+- React 18 + Vite
+- Tailwind CSS
+- Context API + localStorage
+- react-google-charts (Gantt)
+- date-fns
+- lucide-react
+
+## Vistas
+- **Mi Día** — tareas con vencimiento hoy
+- **Proyectos y Tareas** — lista agrupada por proyecto, cambio de estado inline
+- **Gantt** — diagrama cronológico con Google Charts
