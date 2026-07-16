@@ -1,0 +1,129 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Rol {
+  ADMIN
+  USER
+}
+
+model Usuario {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  nombre       String
+  rol          Rol      @default(USER)
+  createdAt    DateTime @default(now())
+
+  requisitosAsignados Requisito[] @relation("RequisitoResponsable")
+  requisitosCreados   Requisito[] @relation("RequisitoCreadoPor")
+  bugsReportados      Bug[]       @relation("BugReportante")
+}
+
+model Proyecto {
+  id        String   @id @default(cuid())
+  nombre    String   @unique
+  tipo      String   @default("Proyecto")
+  orden     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  fases      Fase[]
+  requisitos Requisito[]
+  bugs       Bug[]
+}
+
+model Fase {
+  id          String @id @default(cuid())
+  nombre      String
+  descripcion String @default("")
+
+  proyecto   Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+  proyectoId String
+
+  requisitos Requisito[]
+}
+
+model Requisito {
+  id               String    @id @default(cuid())
+  titulo           String
+  descripcion      String    @default("")
+  estado           String    @default("To Do")
+  prioridad        String    @default("Media")
+  fechaInicio      DateTime?
+  fechaVencimiento DateTime?
+  notas            String    @default("")
+  linkDocumento    String    @default("")
+  enMiDia          Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  proyecto   Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+  proyectoId String
+
+  fase   Fase?   @relation(fields: [faseId], references: [id], onDelete: SetNull)
+  faseId String?
+
+  responsable   Usuario? @relation("RequisitoResponsable", fields: [responsableId], references: [id], onDelete: SetNull)
+  responsableId String?
+
+  creadoPor   Usuario? @relation("RequisitoCreadoPor", fields: [creadoPorId], references: [id], onDelete: SetNull)
+  creadoPorId String?
+
+  checklist ChecklistItem[]
+
+  // Requisitos de los que ESTE requisito depende (bloqueantes)
+  dependeDe RequisitoDependencia[] @relation("Dependiente")
+  // Requisitos que dependen de ESTE requisito
+  esBloqueanteDe RequisitoDependencia[] @relation("Bloqueante")
+
+  @@index([proyectoId])
+  @@index([faseId])
+  @@index([responsableId])
+}
+
+// Tabla puente para la relación muchos-a-muchos de dependencias entre requisitos
+model RequisitoDependencia {
+  id String @id @default(cuid())
+
+  requisito   Requisito @relation("Dependiente", fields: [requisitoId], references: [id], onDelete: Cascade)
+  requisitoId String
+
+  dependeDe   Requisito @relation("Bloqueante", fields: [dependeDeId], references: [id], onDelete: Cascade)
+  dependeDeId String
+
+  @@unique([requisitoId, dependeDeId])
+}
+
+model ChecklistItem {
+  id         String  @id @default(cuid())
+  texto      String
+  completado Boolean @default(false)
+
+  requisito   Requisito @relation(fields: [requisitoId], references: [id], onDelete: Cascade)
+  requisitoId String
+
+  @@index([requisitoId])
+}
+
+model Bug {
+  id           String   @id @default(cuid())
+  titulo       String
+  descripcion  String   @default("")
+  prioridad    String   @default("Media")
+  estado       String   @default("Abierto")
+  reportadoPor String   @default("")
+  fechaReporte DateTime @default(now())
+
+  proyecto   Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+  proyectoId String
+
+  reportante   Usuario? @relation("BugReportante", fields: [reportanteId], references: [id], onDelete: SetNull)
+  reportanteId String?
+
+  @@index([proyectoId])
+}
