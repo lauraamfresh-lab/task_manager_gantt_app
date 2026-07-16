@@ -4,7 +4,7 @@ import { es } from 'date-fns/locale'
 import {
   Plus, ExternalLink, Trash2, Pencil, ChevronDown, ChevronRight, CheckSquare, Square, FileText,
   Sun, ArrowUp, ArrowDown, Calendar, User, Check, Circle, ListChecks, BarChart2, Users,
-  Filter, Tag, ChevronLeft, GitBranch
+  Filter, Tag, ChevronLeft, GitBranch, X
 } from 'lucide-react'
 import { useApp, ESTADOS, ESTADO_CONFIG, getEtiquetaColor, getProjectColor, ETIQUETAS_OPCIONES } from '../context/AppContext'
 import EstadoSelect from '../components/EstadoSelect'
@@ -702,16 +702,26 @@ const MAX_TARJETAS_VISIBLES = 5
 const MAX_FILAS_SIN_ASIGNAR = 6
 
 // Tarjeta de un requisito. En el pool "Sin programar" muestra un desplegable para asignar
-// responsable directamente (sin drag&drop). Dentro del tablero es arrastrable entre semanas.
-function TarjetaCarga({ requisito, draggable = true, onDragStart, showAssign = false, onAssign }) {
+// responsable directamente (sin drag&drop). Dentro del tablero es arrastrable entre semanas
+// y muestra una X para devolverlo directamente al grupo "Sin asignar".
+function TarjetaCarga({ requisito, draggable = true, onDragStart, showAssign = false, onAssign, onRemove }) {
   return (
     <div
       draggable={draggable}
       onDragStart={draggable ? (e) => onDragStart(e, requisito) : undefined}
-      className={`bg-surface-800/70 border border-white/[0.05] hover:border-white/15 rounded-lg px-2.5 py-2 space-y-1.5 transition-colors ${draggable ? 'cursor-grab active:cursor-grabbing' : ''}`}
+      className={`relative bg-surface-800/70 border border-white/[0.05] hover:border-white/15 rounded-lg px-2.5 py-2 space-y-1.5 transition-colors ${draggable ? 'cursor-grab active:cursor-grabbing' : ''}`}
       title={requisito.titulo}
     >
-      <div className="flex items-center justify-between gap-2">
+      {onRemove && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onRemove(requisito.id) }}
+          className="absolute top-1.5 right-1.5 p-0.5 rounded text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+          title="Devolver a Sin asignar"
+        >
+          <X size={12} />
+        </button>
+      )}
+      <div className="flex items-center justify-between gap-2 pr-4">
         <p className="text-xs text-slate-300 truncate flex-1">{requisito.titulo}</p>
         <PrioridadBadge requisito={requisito} editable={false} />
       </div>
@@ -736,7 +746,7 @@ function TarjetaCarga({ requisito, draggable = true, onDragStart, showAssign = f
 }
 
 // Celda de una semana dentro del tablero de una persona: máximo 5 tarjetas visibles, scroll si hay más
-function CeldaSemana({ sem, lista, onDragOver, onDrop, onDragStart }) {
+function CeldaSemana({ sem, lista, onDragOver, onDrop, onDragStart, onRemove }) {
   return (
     <div
       onDragOver={onDragOver}
@@ -752,14 +762,14 @@ function CeldaSemana({ sem, lista, onDragOver, onDrop, onDragStart }) {
         )}
       </div>
       <div className={`space-y-2 ${lista.length > MAX_TARJETAS_VISIBLES ? 'max-h-[280px] overflow-y-auto pr-1 custom-scrollbar' : ''}`}>
-        {lista.map(r => <TarjetaCarga key={r.id} requisito={r} onDragStart={onDragStart} />)}
+        {lista.map(r => <TarjetaCarga key={r.id} requisito={r} onDragStart={onDragStart} onRemove={onRemove} />)}
       </div>
     </div>
   )
 }
 
 // Bloque de una persona: tablero de semanas + Gantt filtrado a sus requisitos (colapsado por defecto)
-function PersonaBoard({ responsable, semanas, celda, handleDragOver, handleDropEnCelda, handleDragStartTarjeta, requisitosPersona }) {
+function PersonaBoard({ responsable, semanas, celda, handleDragOver, handleDropEnCelda, handleDragStartTarjeta, handleQuitarDeTablero, requisitosPersona }) {
   const [showGantt, setShowGantt] = useState(false)
   const col = getEtiquetaColor(responsable)
 
@@ -779,6 +789,7 @@ function PersonaBoard({ responsable, semanas, celda, handleDragOver, handleDropE
             onDragOver={handleDragOver}
             onDrop={(e) => handleDropEnCelda(e, responsable, sem.inicio)}
             onDragStart={handleDragStartTarjeta}
+            onRemove={handleQuitarDeTablero}
           />
         ))}
       </div>
@@ -893,6 +904,11 @@ function VistaCarga() {
     dispatch({ type: 'UPDATE_REQUISITO', payload: { id, fechaInicio: '', fechaVencimiento: '', responsable: '' } })
   }
 
+  // Botón "X" en una tarjeta del tablero: la devuelve directamente al grupo "Sin asignar"
+  const handleQuitarDeTablero = (id) => {
+    dispatch({ type: 'UPDATE_REQUISITO', payload: { id, fechaInicio: '', fechaVencimiento: '', responsable: '' } })
+  }
+
   // Asignación directa desde el desplegable. Si el requisito ya tenía fechas, se conservan
   // (solo se le pone responsable); si no, se programa en la semana actualmente visible.
   const handleAsignarDesdePool = (id, responsable) => {
@@ -934,6 +950,7 @@ function VistaCarga() {
             handleDragOver={handleDragOver}
             handleDropEnCelda={handleDropEnCelda}
             handleDragStartTarjeta={handleDragStartTarjeta}
+            handleQuitarDeTablero={handleQuitarDeTablero}
             requisitosPersona={requisitosPorPersona(responsable)}
           />
         ))}
