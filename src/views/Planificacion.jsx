@@ -219,7 +219,7 @@ function RequisitoRow({ requisito, i, listLength, onEdit, requisitosDelProyecto 
 
 function ProyectoGroup({ proyecto, requisitos, index, totalProyectos, onAdd, onEdit, onEditProject, todosLosRequisitos }) {
   const { dispatch, state } = useApp()
-  const [isCollapsed, setIsCollapsed] = useState(false)
+  const [isCollapsed, setIsCollapsed] = useState(true)
   const [showCompleted, setShowCompleted] = useState(false)
   const [sortField, setSortField] = useState(null)
   const [sortAsc, setSortAsc] = useState(true)
@@ -472,13 +472,15 @@ function VistaTimeline() {
 
   const timelineRef = useRef(null)
 
-  const handleDragStartBarra = (e, requisito) => {
+  // mode: 'move' arrastra toda la barra; 'resize-left'/'resize-right' cambian solo un extremo
+  const handleDragStartBarra = (e, requisito, mode = 'move') => {
+    e.stopPropagation()
     const rect = timelineRef.current.getBoundingClientRect()
     const grabXPercent = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width))
     const grabDate = addDays(minDate, Math.round(grabXPercent * totalDays))
     const grabOffsetDays = differenceInDays(grabDate, parseISO(requisito.fechaInicio))
     e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('text/plain', JSON.stringify({ id: requisito.id, grabOffsetDays }))
+    e.dataTransfer.setData('text/plain', JSON.stringify({ id: requisito.id, grabOffsetDays, mode }))
   }
 
   const handleDragOverGantt = (e) => e.preventDefault()
@@ -494,10 +496,28 @@ function VistaTimeline() {
     const rect = timelineRef.current.getBoundingClientRect()
     const dropXPercent = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width))
     const dropDate = addDays(minDate, Math.round(dropXPercent * totalDays))
-    const newStart = addDays(dropDate, -payload.grabOffsetDays)
 
     const originalStart = parseISO(requisito.fechaInicio)
     const originalEnd = requisito.fechaVencimiento ? parseISO(requisito.fechaVencimiento) : addDays(originalStart, 1)
+
+    if (payload.mode === 'resize-right') {
+      // El extremo derecho sigue al cursor; el inicio no se toca. Mínimo 1 día de duración.
+      let newEnd = dropDate
+      if (newEnd <= originalStart) newEnd = addDays(originalStart, 1)
+      dispatch({ type: 'UPDATE_REQUISITO', payload: { id: requisito.id, fechaVencimiento: format(newEnd, 'yyyy-MM-dd') } })
+      return
+    }
+
+    if (payload.mode === 'resize-left') {
+      // El extremo izquierdo sigue al cursor; el fin no se toca. Mínimo 1 día de duración.
+      let newStart = dropDate
+      if (newStart >= originalEnd) newStart = addDays(originalEnd, -1)
+      dispatch({ type: 'UPDATE_REQUISITO', payload: { id: requisito.id, fechaInicio: format(newStart, 'yyyy-MM-dd') } })
+      return
+    }
+
+    // mode === 'move': desplaza toda la barra conservando su duración
+    const newStart = addDays(dropDate, -payload.grabOffsetDays)
     const duracionDias = differenceInDays(originalEnd, originalStart)
     const newEnd = addDays(newStart, duracionDias)
 
@@ -541,13 +561,28 @@ function VistaTimeline() {
         <div className="relative h-full w-full flex items-center px-4">
           <div
             draggable
-            onDragStart={(e) => handleDragStartBarra(e, requisito)}
-            className="absolute h-6 rounded-lg flex items-center px-2 shadow-md border cursor-grab active:cursor-grabbing overflow-hidden transition-all duration-150"
+            onDragStart={(e) => handleDragStartBarra(e, requisito, 'move')}
+            className="group/bar absolute h-6 rounded-lg flex items-center px-2 shadow-md border cursor-grab active:cursor-grabbing overflow-hidden transition-all duration-150"
             style={{ left: `${barLeft}%`, width: `${barWidth}%`, backgroundColor: `${tagColor.accent}20`, borderColor: `${tagColor.accent}60`, borderWidth: '1px' }}
-            title={`${requisito.titulo} [Proyecto: ${requisito.proyecto}] [Responsable: ${requisito.responsable || 'Ninguno'}] · Arrastra para reprogramar`}
+            title={`${requisito.titulo} [Proyecto: ${requisito.proyecto}] [Responsable: ${requisito.responsable || 'Ninguno'}] · Arrastra para reprogramar, tira de los extremos para cambiar la duración`}
           >
             <div className="absolute left-0 top-0 bottom-0 opacity-40" style={{ width: requisito.estado === 'Done' ? '100%' : requisito.estado === 'In Progress' ? '50%' : '0%', backgroundColor: tagColor.accent }} />
             {barWidth > 12 && <span className="text-[10px] font-semibold text-white/95 truncate z-10 font-mono">{requisito.responsable || 'Sin asignar'}</span>}
+
+            <div
+              draggable
+              onDragStart={(e) => handleDragStartBarra(e, requisito, 'resize-left')}
+              onClick={(e) => e.stopPropagation()}
+              className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize opacity-0 group-hover/bar:opacity-100 transition-opacity bg-white/30 hover:bg-white/60"
+              title="Arrastra para cambiar la fecha de inicio"
+            />
+            <div
+              draggable
+              onDragStart={(e) => handleDragStartBarra(e, requisito, 'resize-right')}
+              onClick={(e) => e.stopPropagation()}
+              className="absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize opacity-0 group-hover/bar:opacity-100 transition-opacity bg-white/30 hover:bg-white/60"
+              title="Arrastra para cambiar la fecha de vencimiento"
+            />
           </div>
         </div>
       </div>
@@ -661,67 +696,187 @@ function VistaTimeline() {
 // Sub-vista 3: CARGA DE TRABAJO (nueva)
 // ─────────────────────────────────────────────────────────────
 
-function VistaCarga() {
-  const { state } = useApp()
-  const requisitos = state.requisitos || []
+const SEMANAS_VISIBLES = 4
 
-  const porResponsable = useMemo(() => {
-    const map = {}
-    ETIQUETAS_OPCIONES.forEach(r => { map[r] = [] })
-    map['Sin asignar'] = []
-    requisitos.forEach(r => {
-      if (r.estado === 'Done') return
-      const key = r.responsable && ETIQUETAS_OPCIONES.includes(r.responsable) ? r.responsable : 'Sin asignar'
-      map[key].push(r)
+// Tarjeta arrastrable de un requisito (se usa tanto en el pool "Sin asignar" como en las celdas del tablero)
+function TarjetaCarga({ requisito, onDragStart }) {
+  return (
+    <div
+      draggable
+      onDragStart={(e) => onDragStart(e, requisito)}
+      className="cursor-grab active:cursor-grabbing bg-surface-800/70 border border-white/[0.05] hover:border-white/15 rounded-lg px-2.5 py-2 space-y-1 transition-colors"
+      title={requisito.titulo}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs text-slate-300 truncate flex-1">{requisito.titulo}</p>
+        <PrioridadBadge requisito={requisito} editable={false} />
+      </div>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[10px] text-slate-500 truncate">{requisito.proyecto}</span>
+        <span className={`text-[9px] font-medium rounded-full px-1.5 py-0.5 border shrink-0 ${(ESTADO_CONFIG[requisito.estado] || ESTADO_CONFIG['To Do']).bg} ${(ESTADO_CONFIG[requisito.estado] || ESTADO_CONFIG['To Do']).color} ${(ESTADO_CONFIG[requisito.estado] || ESTADO_CONFIG['To Do']).border}`}>
+          {requisito.estado}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function VistaCarga() {
+  const { state, dispatch } = useApp()
+  const requisitos = useMemo(() => (state.requisitos || []).filter(r => r.estado !== 'Done'), [state.requisitos])
+
+  const [fechaInicioVista, setFechaInicioVista] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }))
+
+  const semanas = useMemo(() => {
+    return Array.from({ length: SEMANAS_VISIBLES }, (_, i) => {
+      const inicio = addDays(fechaInicioVista, i * 7)
+      const fin = addDays(inicio, 6)
+      return { inicio, fin, key: format(inicio, 'yyyy-MM-dd') }
     })
-    return map
-  }, [requisitos])
+  }, [fechaInicioVista])
+
+  const rangoInicio = semanas[0].inicio
+  const rangoFin = semanas[semanas.length - 1].fin
+
+  // Sin asignar: no tiene fecha de inicio (no se ha programado todavía)
+  const sinAsignar = useMemo(() => requisitos.filter(r => !r.fechaInicio), [requisitos])
+
+  // Requisitos programados dentro del rango de semanas visible, agrupados por responsable + semana
+  const enTablero = useMemo(() => requisitos.filter(r => {
+    if (!r.fechaInicio) return false
+    try {
+      const inicio = parseISO(r.fechaInicio)
+      return inicio >= rangoInicio && inicio <= rangoFin
+    } catch { return false }
+  }), [requisitos, rangoInicio, rangoFin])
+
+  const responsablesTablero = [...ETIQUETAS_OPCIONES, 'Sin asignar']
+
+  const celda = (responsable, semanaKey) => enTablero.filter(r => {
+    const respKey = r.responsable && ETIQUETAS_OPCIONES.includes(r.responsable) ? r.responsable : 'Sin asignar'
+    if (respKey !== responsable) return false
+    try { return format(startOfWeek(parseISO(r.fechaInicio), { weekStartsOn: 1 }), 'yyyy-MM-dd') === semanaKey } catch { return false }
+  })
+
+  const navegar = (dir) => setFechaInicioVista(prev => addDays(prev, dir * 7))
+
+  const handleDragStartTarjeta = (e, requisito) => {
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', requisito.id)
+  }
+
+  const handleDragOver = (e) => e.preventDefault()
+
+  const handleDropEnCelda = (e, responsable, semanaInicio) => {
+    e.preventDefault()
+    const id = e.dataTransfer.getData('text/plain')
+    if (!id) return
+    const requisito = requisitos.find(r => r.id === id)
+    if (!requisito) return
+
+    let nuevaFechaInicio = semanaInicio
+    let nuevaFechaFin = addDays(semanaInicio, 6) // por defecto, semana completa (lunes a domingo)
+
+    if (requisito.fechaInicio && requisito.fechaVencimiento) {
+      // Ya tenía fechas: se conserva su duración, solo se desplaza para empezar ese lunes
+      try {
+        const duracion = differenceInDays(parseISO(requisito.fechaVencimiento), parseISO(requisito.fechaInicio))
+        nuevaFechaFin = addDays(semanaInicio, Math.max(0, duracion))
+      } catch { /* usar semana completa por defecto */ }
+    }
+
+    dispatch({
+      type: 'UPDATE_REQUISITO',
+      payload: {
+        id: requisito.id,
+        responsable: responsable === 'Sin asignar' ? '' : responsable,
+        fechaInicio: format(nuevaFechaInicio, 'yyyy-MM-dd'),
+        fechaVencimiento: format(nuevaFechaFin, 'yyyy-MM-dd')
+      }
+    })
+  }
+
+  const handleDropEnPool = (e) => {
+    e.preventDefault()
+    const id = e.dataTransfer.getData('text/plain')
+    if (!id) return
+    // Devolver a "sin asignar": quita las fechas para que vuelva al pool
+    dispatch({ type: 'UPDATE_REQUISITO', payload: { id, fechaInicio: '', fechaVencimiento: '' } })
+  }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-      {Object.entries(porResponsable).map(([responsable, lista]) => {
-        const col = getEtiquetaColor(responsable)
-        const enProgreso = lista.filter(r => r.estado === 'In Progress').length
-        const porHacer = lista.filter(r => r.estado === 'To Do').length
-        const altaPrioridad = lista.filter(r => r.prioridad === 'Alta').length
-
-        return (
-          <div key={responsable} className="rounded-2xl border border-white/5 bg-surface-700/40 p-5 shadow-lg space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <span className="w-3 h-3 rounded-full" style={{ backgroundColor: col.accent }} />
-                <h3 className="font-display font-bold text-slate-200">{responsable}</h3>
-              </div>
-              <span className="text-xs font-mono text-slate-500 bg-white/5 px-2 py-0.5 rounded-md">{lista.length} activos</span>
-            </div>
-
-            <div className="flex gap-2 text-[10px] font-medium">
-              <span className="px-2 py-1 rounded-lg bg-slate-500/10 text-slate-400 border border-slate-500/20">{porHacer} por hacer</span>
-              <span className="px-2 py-1 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">{enProgreso} en progreso</span>
-              {altaPrioridad > 0 && <span className="px-2 py-1 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20">{altaPrioridad} alta prioridad</span>}
-            </div>
-
-            <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
-              {lista.length === 0 ? (
-                <p className="text-xs text-slate-500 italic py-2 text-center">Sin requisitos activos.</p>
-              ) : (
-                lista
-                  .slice()
-                  .sort((a, b) => (a.prioridad === 'Alta' ? -1 : 1) - (b.prioridad === 'Alta' ? -1 : 1))
-                  .map(r => (
-                    <div key={r.id} className="flex items-center justify-between gap-2 bg-surface-800/60 border border-white/[0.03] rounded-lg px-2.5 py-2">
-                      <div className="min-w-0">
-                        <p className="text-xs text-slate-300 truncate">{r.titulo}</p>
-                        <p className="text-[10px] text-slate-500 truncate">{r.proyecto}</p>
-                      </div>
-                      <PrioridadBadge requisito={r} editable={false} />
-                    </div>
-                  ))
-              )}
-            </div>
+    <div className="space-y-5">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <p className="text-xs text-slate-500">
+          Arrastra un requisito de "Sin programar" al tablero de una persona y suéltalo en la semana en la que quieras que trabaje en él.
+        </p>
+        <div className="flex items-center gap-1.5 bg-surface-800/90 border border-white/5 p-1 rounded-xl">
+          <button type="button" onClick={() => navegar(-1)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors"><ChevronLeft size={14} strokeWidth={2.5} /></button>
+          <button type="button" onClick={() => setFechaInicioVista(startOfWeek(new Date(), { weekStartsOn: 1 }))} className="px-2.5 py-1 text-xs font-semibold text-slate-200 bg-white/5 hover:bg-white/10 rounded-md transition-colors">Hoy</button>
+          <button type="button" onClick={() => navegar(1)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors"><ChevronRight size={14} strokeWidth={2.5} /></button>
+          <div className="h-4 w-px bg-white/10 mx-1" />
+          <div className="flex items-center gap-1.5 text-xs font-mono font-medium text-slate-300 pr-2.5 pl-1">
+            <Calendar size={13} className="text-violet-400" />
+            <span className="lowercase">{format(rangoInicio, 'dd MMM', { locale: es }).replace('.', '')} – {format(rangoFin, 'dd MMM yyyy', { locale: es }).replace('.', '')}</span>
           </div>
-        )
-      })}
+        </div>
+      </div>
+
+      {/* Pool de requisitos sin programar */}
+      <div
+        onDragOver={handleDragOver}
+        onDrop={handleDropEnPool}
+        className="rounded-2xl border border-dashed border-white/10 bg-slate-950/20 p-4 space-y-3"
+      >
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-bold text-slate-400 flex items-center gap-1.5">📥 Sin programar <span className="text-[10px] font-normal normal-case text-slate-500">(sin fecha de inicio)</span></h3>
+          <span className="text-[10px] text-slate-500 font-mono bg-white/5 px-1.5 py-0.5 rounded">{sinAsignar.length}</span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {sinAsignar.length === 0 ? (
+            <p className="text-[11px] text-slate-500 italic py-1">No hay requisitos pendientes de programar.</p>
+          ) : (
+            sinAsignar.map(r => (
+              <div key={r.id} className="w-56">
+                <TarjetaCarga requisito={r} onDragStart={handleDragStartTarjeta} />
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Tablero por persona */}
+      <div className="space-y-4">
+        {responsablesTablero.map(responsable => {
+          const col = getEtiquetaColor(responsable)
+          return (
+            <div key={responsable} className="rounded-2xl border border-white/5 bg-surface-700/40 overflow-hidden shadow-lg">
+              <div className="flex items-center gap-2.5 px-4 py-3 border-b border-white/5 bg-surface-800/40">
+                <span className="w-3 h-3 rounded-full" style={{ backgroundColor: col.accent }} />
+                <h3 className="font-display font-bold text-slate-200 text-sm">{responsable}</h3>
+              </div>
+              <div className="grid" style={{ gridTemplateColumns: `repeat(${SEMANAS_VISIBLES}, minmax(0, 1fr))` }}>
+                {semanas.map(sem => {
+                  const lista = celda(responsable, sem.key)
+                  return (
+                    <div
+                      key={sem.key}
+                      onDragOver={handleDragOver}
+                      onDrop={(e) => handleDropEnCelda(e, responsable, sem.inicio)}
+                      className="border-l border-white/5 first:border-l-0 p-2.5 space-y-2 min-h-[110px] bg-surface-900/10 hover:bg-white/[0.02] transition-colors"
+                    >
+                      <p className="text-[10px] font-mono text-slate-500 lowercase">
+                        {format(sem.inicio, 'dd MMM', { locale: es }).replace('.', '')} – {format(sem.fin, 'dd MMM', { locale: es }).replace('.', '')}
+                      </p>
+                      {lista.map(r => <TarjetaCarga key={r.id} requisito={r} onDragStart={handleDragStartTarjeta} />)}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
