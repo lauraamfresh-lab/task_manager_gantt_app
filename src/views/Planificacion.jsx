@@ -4,7 +4,7 @@ import { es } from 'date-fns/locale'
 import {
   Plus, ExternalLink, Trash2, Pencil, ChevronDown, ChevronRight, CheckSquare, Square, FileText,
   Sun, ArrowUp, ArrowDown, Calendar, User, Check, Circle, ListChecks, BarChart2, Users,
-  Filter, Tag, ChevronLeft, GitBranch, X
+  Filter, Tag, ChevronLeft, GitBranch, X, Download
 } from 'lucide-react'
 import { useApp, ESTADOS, ESTADO_CONFIG, getEtiquetaColor, getProjectColor, ETIQUETAS_OPCIONES, PROYECTO_ESTADOS, PROYECTO_ESTADO_CONFIG } from '../context/AppContext'
 import EstadoSelect from '../components/EstadoSelect'
@@ -12,6 +12,7 @@ import PrioridadBadge from '../components/PrioridadBadge'
 import RequisitoModal from '../components/RequisitoModal'
 import ProjectModal from '../components/ProjectModal'
 import MiniGantt from '../components/MiniGantt'
+import { exportarPlanificacionExcel } from '../utils/exportExcel'
 
 // ─────────────────────────────────────────────────────────────
 // Sub-vista 1: LISTA (antes "Proyectos, Tareas y Reqs")
@@ -1029,6 +1030,9 @@ export default function Planificacion() {
           <p className="text-sm text-slate-500 mt-1">Proyectos, requisitos y carga de trabajo en un mismo lugar.</p>
         </div>
         <div className="flex gap-2">
+          <button onClick={() => exportarPlanificacionExcel(state)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-white/10 hover:border-white/20 text-slate-400 hover:text-slate-200 text-sm font-medium transition-all" title="Descarga un Excel con una hoja de planificación por cada persona del equipo">
+            <Download size={16} strokeWidth={2.5} /> Exportar a Excel
+          </button>
           <button onClick={() => { setEditProjectObj(null); setProjectModal(true) }} className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-white/10 hover:border-white/20 text-slate-400 hover:text-slate-200 text-sm font-medium transition-all">
             <Plus size={16} strokeWidth={2.5} /> Nuevo proyecto
           </button>
