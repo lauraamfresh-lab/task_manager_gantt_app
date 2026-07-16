@@ -173,7 +173,7 @@ function MiniGantt({ requisitos, proyectosData }) {
 // ─── Bloque de Fase (antes "Sprint"): nombre + descripción editables + toggle de completados propio ───
 
 function FaseBlock({ fase, requisitosFase, onDrop, onDragOver, isBacklog = false, onEdit, onDelete, onRemoveItem }) {
-  const [isCollapsed, setIsCollapsed] = useState(isBacklog)
+  const [isCollapsed, setIsCollapsed] = useState(true)
   const [isEditing, setIsEditing] = useState(false)
   const [editName, setEditName] = useState(fase.nombre)
   const [editDescripcion, setEditDescripcion] = useState(fase.descripcion || '')
@@ -273,7 +273,12 @@ function FaseBlock({ fase, requisitosFase, onDrop, onDragOver, isBacklog = false
             </p>
           ) : (
             listaVisible.map(r => (
-              <div key={r.id} className="relative flex items-center justify-between gap-3 bg-surface-900/60 border border-white/[0.03] p-2 rounded-lg flex-wrap">
+              <div
+                key={r.id}
+                draggable
+                onDragStart={(e) => e.dataTransfer.setData('text/plain', r.id)}
+                className="relative flex items-center justify-between gap-3 bg-surface-900/60 border border-white/[0.03] p-2 rounded-lg flex-wrap cursor-grab active:cursor-grabbing hover:border-white/10 transition-colors"
+              >
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   {r.estado === 'Done' ? <Check size={12} className="text-emerald-400 shrink-0" /> : <Circle size={12} className="text-slate-600 shrink-0" />}
                   <span className="text-xs truncate text-slate-300">{r.titulo}</span>
