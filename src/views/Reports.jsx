@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react'
-import { ClipboardList, ChevronDown, ChevronRight, Check, Circle, Calendar, User, BarChart2, AlertTriangle, CheckCircle2, Clock, Layers, Plus, Trash2, Edit2, EyeOff, Eye } from 'lucide-react'
+import { ClipboardList, ChevronDown, ChevronRight, Check, Circle, User, BarChart2, AlertTriangle, CheckCircle2, Clock, Layers, Plus, Trash2, Edit2, EyeOff, Eye, X } from 'lucide-react'
 import { format, parseISO, differenceInDays, addDays, startOfWeek, getISOWeek } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { useApp, getProjectColor, ESTADO_CONFIG, getEtiquetaColor } from '../context/AppContext'
@@ -170,70 +170,9 @@ function MiniGantt({ requisitos, proyectosData }) {
   )
 }
 
-// ─── Fila de requisito (dentro de la tabla de la tarjeta de proyecto) ───
-
-function RequisitoRow({ r, fases }) {
-  const [expanded, setExpanded] = useState(false)
-  const faseName = (fases || []).find(f => f.id === r.sprintId)?.nombre
-  const isOverdue = r.fechaVencimiento && r.estado !== 'Done' && new Date(r.fechaVencimiento) < new Date()
-
-  const handleDragStart = (e) => { e.dataTransfer.setData('text/plain', r.id) }
-
-  return (
-    <div
-      draggable
-      onDragStart={handleDragStart}
-      className={`border-b border-white/[0.04] last:border-0 cursor-grab active:cursor-grabbing hover:bg-white/[0.01] transition-all ${r.estado === 'Done' ? 'opacity-60' : ''}`}
-    >
-      <div className="grid grid-cols-[1fr_90px_120px_110px_90px] items-center px-4 py-3 hover:bg-white/[0.02] cursor-pointer transition-colors" onClick={() => setExpanded(!expanded)}>
-        <div className="flex items-center gap-2.5 pr-3 min-w-0">
-          <div className="shrink-0">{r.estado === 'Done' ? <Check size={14} className="text-emerald-400" /> : <Circle size={14} className="text-slate-500" />}</div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <p className={`text-sm font-medium truncate ${r.estado === 'Done' ? 'line-through text-slate-500' : 'text-slate-200'}`}>{r.titulo}</p>
-              {faseName && <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-400 border border-violet-500/30 shrink-0">{faseName}</span>}
-            </div>
-            {r.descripcion && <p className="text-[10px] text-slate-500 truncate mt-0.5">{r.descripcion}</p>}
-          </div>
-          {expanded ? <ChevronDown size={13} className="text-slate-500 shrink-0" /> : <ChevronRight size={13} className="text-slate-500 shrink-0" />}
-        </div>
-
-        <div><PrioridadBadge requisito={r} editable={false} /></div>
-
-        <div>
-          {r.estado === 'Done' ? (
-            <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium"><Check size={9} /> Completado</span>
-          ) : (
-            <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 font-medium"><Clock size={9} /> {r.estado}</span>
-          )}
-        </div>
-
-        <div>
-          {r.fechaVencimiento ? (
-            <span className={`text-xs font-mono flex items-center gap-1 ${isOverdue ? 'text-rose-400' : 'text-slate-400'}`}>{isOverdue && <AlertTriangle size={10} />}{r.fechaVencimiento}</span>
-          ) : <span className="text-xs text-slate-600">—</span>}
-        </div>
-
-        <div>
-          {r.responsable ? (
-            <span className="text-xs text-slate-300 flex items-center gap-1"><User size={11} className="text-slate-500" /> {r.responsable}</span>
-          ) : <span className="text-xs text-slate-600">—</span>}
-        </div>
-      </div>
-
-      {expanded && r.descripcion && (
-        <div className="px-12 pb-3 animate-fade-in">
-          <p className="text-xs text-slate-400 leading-relaxed whitespace-pre-wrap bg-surface-800/40 rounded-lg p-3 border border-white/5">{r.descripcion}</p>
-          {faseName && <p className="text-[10px] mt-1 text-violet-400 font-medium">Asignado a: {faseName}</p>}
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ─── Bloque de Fase (antes "Sprint"): nombre + descripción editables + toggle de completados propio ───
 
-function FaseBlock({ fase, requisitosFase, onDrop, onDragOver, isBacklog = false, onEdit, onDelete }) {
+function FaseBlock({ fase, requisitosFase, onDrop, onDragOver, isBacklog = false, onEdit, onDelete, onRemoveItem }) {
   const [isCollapsed, setIsCollapsed] = useState(isBacklog)
   const [isEditing, setIsEditing] = useState(false)
   const [editName, setEditName] = useState(fase.nombre)
@@ -263,9 +202,9 @@ function FaseBlock({ fase, requisitosFase, onDrop, onDragOver, isBacklog = false
       onDrop={(e) => onDrop(e, isBacklog ? null : fase.id)}
       className={`p-4 rounded-xl border transition-all ${isBacklog ? 'border-dashed border-white/10 bg-slate-950/20' : 'border-white/5 bg-surface-800/40 hover:border-white/10 shadow-md'}`}
     >
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-white/5 mb-3">
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          <button onClick={() => setIsCollapsed(!isCollapsed)} className="text-slate-400 hover:text-slate-200 transition-colors bg-white/5 p-0.5 rounded shrink-0">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 pb-3 border-b border-white/5 mb-3">
+        <div className="flex items-start gap-2 min-w-0 flex-1">
+          <button onClick={() => setIsCollapsed(!isCollapsed)} className="text-slate-400 hover:text-slate-200 transition-colors bg-white/5 p-0.5 rounded shrink-0 mt-0.5">
             {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
           </button>
 
@@ -279,17 +218,23 @@ function FaseBlock({ fase, requisitosFase, onDrop, onDragOver, isBacklog = false
               </div>
             </form>
           ) : (
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className={`text-xs font-bold ${isBacklog ? 'text-slate-400' : 'text-slate-200'}`}>
-                  {isBacklog ? '📦 Requisitos sin asignar (Backlog)' : fase.nombre}
+            <div className="min-w-0 flex-1 space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className={`text-sm font-bold ${isBacklog ? 'text-slate-400' : 'text-slate-200'}`}>
+                  {isBacklog ? '📥 Requisitos sin asignar' : fase.nombre}
                 </span>
                 <span className="text-[10px] text-slate-500 font-mono bg-white/5 px-1.5 py-0.5 rounded shrink-0">
                   {requisitosFase.length} {requisitosFase.length === 1 ? 'req' : 'reqs'}
                 </span>
               </div>
-              {!isBacklog && fase.descripcion && (
-                <p className="text-[10px] text-slate-500 mt-0.5 truncate">{fase.descripcion}</p>
+              {!isBacklog && (
+                fase.descripcion ? (
+                  <p className="text-xs text-slate-300 leading-relaxed bg-surface-900/40 border border-white/5 rounded-lg px-3 py-2 max-w-2xl">
+                    {fase.descripcion}
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-slate-600 italic">Sin descripción</p>
+                )
               )}
             </div>
           )}
@@ -328,12 +273,13 @@ function FaseBlock({ fase, requisitosFase, onDrop, onDragOver, isBacklog = false
             </p>
           ) : (
             listaVisible.map(r => (
-              <div key={r.id} className="flex items-center justify-between gap-3 bg-surface-900/60 border border-white/[0.03] p-2 rounded-lg flex-wrap">
+              <div key={r.id} className="relative flex items-center justify-between gap-3 bg-surface-900/60 border border-white/[0.03] p-2 rounded-lg flex-wrap">
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   {r.estado === 'Done' ? <Check size={12} className="text-emerald-400 shrink-0" /> : <Circle size={12} className="text-slate-600 shrink-0" />}
-                  <span className={`text-xs truncate ${r.estado === 'Done' ? 'line-through text-slate-500 opacity-60' : 'text-slate-300'}`}>{r.titulo}</span>
+                  <span className="text-xs truncate text-slate-300">{r.titulo}</span>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-2 shrink-0 pr-5">
+                  <PrioridadBadge requisito={r} editable={false} />
                   {r.estado === 'Done' ? (
                     <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium"><Check size={8} /> Completado</span>
                   ) : (
@@ -342,6 +288,15 @@ function FaseBlock({ fase, requisitosFase, onDrop, onDragOver, isBacklog = false
                   {r.responsable && <span className="text-[9px] text-slate-400 flex items-center gap-1"><User size={9} className="text-slate-500" /> {r.responsable}</span>}
                   {r.fechaVencimiento && <span className="text-[9px] font-mono text-slate-500">{r.fechaVencimiento}</span>}
                 </div>
+                {!isBacklog && onRemoveItem && (
+                  <button
+                    onClick={() => onRemoveItem(r.id)}
+                    className="absolute top-1.5 right-1.5 p-0.5 rounded text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                    title="Devolver a Sin asignar"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
               </div>
             ))
           )}
@@ -355,13 +310,10 @@ function FaseBlock({ fase, requisitosFase, onDrop, onDragOver, isBacklog = false
 
 function ProjectReportCard({ proyecto, requisitos }) {
   const [collapsed, setCollapsed] = useState(true)
-  const [showGantt, setShowGantt] = useState(false)
+  const [showGantt, setShowGantt] = useState(true)
   const [showFases, setShowFases] = useState(true)
-  const [showRequerimientos, setShowRequerimientos] = useState(false)
-  const [mostrarAsignados, setMostrarAsignados] = useState(false)
   const [nuevaFaseNombre, setNuevaFaseNombre] = useState('')
   const [creandoFase, setCreandoFase] = useState(false)
-  const [sortBy, setSortBy] = useState(null)
   const { state, dispatch } = useApp()
   const col = getProjectColor(proyecto, state.proyectos)
 
@@ -373,21 +325,8 @@ function ProjectReportCard({ proyecto, requisitos }) {
 
   const fasesProyecto = useMemo(() => (state.sprints || []).filter(s => s.proyecto === proyecto), [state.sprints, proyecto])
 
-  const requisitosProcesados = useMemo(() => {
-    let list = [...requisitos]
-    if (sortBy === 'estado') list.sort((a, b) => (a.estado === b.estado ? 0 : a.estado === 'Done' ? 1 : -1))
-    else if (sortBy === 'fecha') list.sort((a, b) => {
-      if (!a.fechaVencimiento) return 1
-      if (!b.fechaVencimiento) return -1
-      return new Date(a.fechaVencimiento) - new Date(b.fechaVencimiento)
-    })
-    else if (sortBy === 'responsable') list.sort((a, b) => (a.responsable || 'Sin asignar').localeCompare(b.responsable || 'Sin asignar'))
-    return list
-  }, [requisitos, sortBy])
-
   const activeFaseIds = useMemo(() => new Set(fasesProyecto.map(f => f.id)), [fasesProyecto])
-  const requisitosSinAsignar = useMemo(() => requisitosProcesados.filter(r => !r.sprintId || !activeFaseIds.has(r.sprintId)), [requisitosProcesados, activeFaseIds])
-  const requisitosAsignados = useMemo(() => requisitosProcesados.filter(r => r.sprintId && activeFaseIds.has(r.sprintId)), [requisitosProcesados, activeFaseIds])
+  const requisitosSinAsignar = useMemo(() => requisitos.filter(r => !r.sprintId || !activeFaseIds.has(r.sprintId)), [requisitos, activeFaseIds])
 
   const handleDragOver = (e) => e.preventDefault()
   const handleDropRequisito = (e, targetFaseId) => {
@@ -396,6 +335,11 @@ function ProjectReportCard({ proyecto, requisitos }) {
     if (requisitoId && dispatch) {
       dispatch({ type: 'UPDATE_REQUISITO_SPRINT', payload: { requisitoId, sprintId: targetFaseId } })
     }
+  }
+
+  // Botón "X" en un requisito de una fase: lo devuelve directamente a "Sin asignar"
+  const handleQuitarDeFase = (requisitoId) => {
+    dispatch({ type: 'UPDATE_REQUISITO_SPRINT', payload: { requisitoId, sprintId: null } })
   }
 
   const handleCrearFase = (e) => {
@@ -408,7 +352,7 @@ function ProjectReportCard({ proyecto, requisitos }) {
 
   const handleEditFase = (faseId, cambios) => dispatch({ type: 'UPDATE_SPRINT', payload: { id: faseId, ...cambios } })
   const handleDeleteFase = (faseId) => {
-    if (window.confirm('¿Eliminar esta fase? Los requisitos volverán al Backlog.')) {
+    if (window.confirm('¿Eliminar esta fase? Los requisitos volverán a Sin asignar.')) {
       dispatch({ type: 'DELETE_SPRINT', payload: faseId })
     }
   }
@@ -468,7 +412,6 @@ function ProjectReportCard({ proyecto, requisitos }) {
                 )}
 
                 <div className="flex flex-col gap-3">
-                  <FaseBlock fase={{ nombre: 'Backlog' }} requisitosFase={requisitosSinAsignar} onDrop={handleDropRequisito} onDragOver={handleDragOver} isBacklog />
                   {fasesProyecto.length === 0 ? (
                     <p className="text-[11px] text-slate-500 italic text-center py-2">Aún no hay fases creadas para este proyecto.</p>
                   ) : (
@@ -476,66 +419,18 @@ function ProjectReportCard({ proyecto, requisitos }) {
                       <FaseBlock
                         key={fase.id}
                         fase={fase}
-                        requisitosFase={requisitosProcesados.filter(r => r.sprintId === fase.id)}
+                        requisitosFase={requisitos.filter(r => r.sprintId === fase.id)}
                         onDrop={handleDropRequisito}
                         onDragOver={handleDragOver}
                         onEdit={handleEditFase}
                         onDelete={handleDeleteFase}
+                        onRemoveItem={handleQuitarDeFase}
                       />
                     ))
                   )}
+                  <FaseBlock fase={{ nombre: 'Sin asignar' }} requisitosFase={requisitosSinAsignar} onDrop={handleDropRequisito} onDragOver={handleDragOver} isBacklog />
                 </div>
               </>
-            )}
-          </div>
-
-          <div className="bg-surface-800/20 border border-white/5 rounded-xl overflow-hidden">
-            <div className="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer select-none hover:bg-white/[0.02] transition-colors" onClick={() => setShowRequerimientos(!showRequerimientos)}>
-              <span className="text-xs font-bold text-slate-400 flex items-center gap-1.5">
-                {showRequerimientos ? <ChevronDown size={14} className="text-slate-500" /> : <ChevronRight size={14} className="text-slate-500" />}
-                <ClipboardList size={14} className="text-violet-400" /> Requisitos ({total})
-              </span>
-            </div>
-
-            {showRequerimientos && (
-              <div className="px-4 pb-4 animate-fade-in">
-                {requisitos.length === 0 ? (
-                  <p className="text-xs text-slate-500 italic px-2 py-4 text-center">Sin requisitos para este proyecto.</p>
-                ) : (
-                  <div className="rounded-xl border border-white/5 overflow-hidden bg-surface-700/20">
-                    <div className="grid grid-cols-[1fr_90px_120px_110px_90px] px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500 bg-surface-800/40 border-b border-white/5 select-none">
-                      <div>Requisito</div>
-                      <div>Prioridad</div>
-                      <div className={`cursor-pointer hover:text-slate-300 transition-colors flex items-center gap-1 ${sortBy === 'estado' ? 'text-accent-violet font-bold' : ''}`} onClick={() => setSortBy(sortBy === 'estado' ? null : 'estado')}>Estado {sortBy === 'estado' && '↕'}</div>
-                      <div className={`cursor-pointer hover:text-slate-300 transition-colors flex items-center gap-1 ${sortBy === 'fecha' ? 'text-accent-violet font-bold' : ''}`} onClick={() => setSortBy(sortBy === 'fecha' ? null : 'fecha')}><Calendar size={9} /> Vencim. {sortBy === 'fecha' && '↕'}</div>
-                      <div className={`cursor-pointer hover:text-slate-300 transition-colors flex items-center gap-1 ${sortBy === 'responsable' ? 'text-accent-violet font-bold' : ''}`} onClick={() => setSortBy(sortBy === 'responsable' ? null : 'responsable')}><User size={9} /> Resp. {sortBy === 'responsable' && '↕'}</div>
-                    </div>
-
-                    {requisitosSinAsignar.length === 0 && requisitosAsignados.length === 0 ? (
-                      <p className="text-xs text-slate-500 italic px-2 py-4 text-center">No hay requisitos que coincidan con los filtros.</p>
-                    ) : (
-                      <>
-                        {requisitosSinAsignar.length === 0 ? (
-                          <p className="text-xs text-slate-500 italic px-2 py-3 text-center">Todos los requisitos están asignados a una fase.</p>
-                        ) : (
-                          requisitosSinAsignar.map(r => <RequisitoRow key={r.id} r={r} fases={fasesProyecto} />)
-                        )}
-
-                        {requisitosAsignados.length > 0 && (
-                          <div className="bg-[#0e1424]/30">
-                            <div className="flex items-center px-4 py-2 border-t border-white/[0.03]">
-                              <button onClick={() => setMostrarAsignados(!mostrarAsignados)} className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-400 hover:text-slate-200 transition-colors py-1 px-2 rounded bg-surface-800/60 border border-white/5">
-                                {mostrarAsignados ? <ChevronDown size={12} /> : <ChevronRight size={12} />} Asignados a fase ({requisitosAsignados.length})
-                              </button>
-                            </div>
-                            {mostrarAsignados && <div>{requisitosAsignados.map(r => <RequisitoRow key={r.id} r={r} fases={fasesProyecto} />)}</div>}
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
             )}
           </div>
 
