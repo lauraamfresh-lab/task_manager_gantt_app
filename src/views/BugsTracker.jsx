@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Bug, Plus, Trash2, Pencil, AlertCircle, ShieldAlert, CheckCircle2, Flame, User, ChevronDown, ChevronRight } from 'lucide-react'
-import { useTask, getProjectColor } from '../context/TaskContext'
+import { useApp as useTask, getProjectColor } from '../context/AppContext'
 import BugModal from '../components/BugModal'
 
 export default function BugsTracker() {

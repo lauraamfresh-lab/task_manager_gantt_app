@@ -1,5 +1,5 @@
 import React from 'react'
-import { ESTADO_CONFIG } from '../context/TaskContext'
+import { ESTADO_CONFIG } from '../context/AppContext'
 
 export default function StatusBadge({ estado }) {
   const cfg = ESTADO_CONFIG[estado] || ESTADO_CONFIG['To Do']

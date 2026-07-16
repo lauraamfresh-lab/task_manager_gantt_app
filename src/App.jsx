@@ -1,9 +1,8 @@
 import React, { useState } from 'react'
-import { TaskProvider } from './context/TaskContext'
+import { AppProvider } from './context/AppContext'
 import Sidebar from './components/Sidebar'
 import MiDia from './views/MiDia'
-import ProyectosYTareas from './views/ProyectosYTareas'
-import Gantt from './views/Gantt'
+import Planificacion from './views/Planificacion'
 import BugsTracker from './views/BugsTracker'
 import Reports from './views/Reports'
 
@@ -12,8 +11,7 @@ function Layout() {
 
   const views = {
     midia: <MiDia />,
-    proyectos: <ProyectosYTareas />,
-    gantt: <Gantt />,
+    planificacion: <Planificacion />,
     bugs: <BugsTracker />,
     reports: <Reports />,
   }
@@ -30,8 +28,8 @@ function Layout() {
 
 export default function App() {
   return (
-    <TaskProvider>
+    <AppProvider>
       <Layout />
-    </TaskProvider>
+    </AppProvider>
   )
 }

@@ -1,66 +1,72 @@
 import React, { useState, useEffect } from 'react'
-import { X, FileText, Calendar, Tag, Briefcase, Link2 } from 'lucide-react'
-import { useTask, ESTADOS, ETIQUETAS_OPCIONES } from '../context/TaskContext'
+import { X, FileText, Calendar, Tag, Briefcase, Link2, BookOpen, GitBranch } from 'lucide-react'
+import { useApp, ESTADOS, ETIQUETAS_OPCIONES, PRIORIDADES, PRIORIDAD_CONFIG } from '../context/AppContext'
 
-export default function TaskModal({ editTask, initialProyecto, onClose }) {
-  const { state, dispatch } = useTask()
-  
+export default function RequisitoModal({ editRequisito, initialProyecto, onClose }) {
+  const { state, dispatch } = useApp()
+
   const [titulo, setTitulo] = useState('')
+  const [descripcion, setDescripcion] = useState('')
   const [proyecto, setProyecto] = useState('')
   const [estado, setEstado] = useState('To Do')
+  const [prioridad, setPrioridad] = useState('Media')
   const [fechaInicio, setFechaInicio] = useState('')
   const [fechaVencimiento, setFechaVencimiento] = useState('')
-  const [etiqueta, setEtiqueta] = useState('Laura')
-  const [notes, setNotas] = useState('')
+  const [responsable, setResponsable] = useState('Laura')
+  const [notas, setNotas] = useState('')
   const [linkDocumento, setLinkDocumento] = useState('')
+  const [dependencias, setDependencias] = useState([])
 
   useEffect(() => {
     if (state.proyectos.length > 0) {
       setProyecto(initialProyecto || state.proyectos[0].nombre)
     }
 
-    if (editTask) {
-      setTitulo(editTask.titulo || '')
-      setProyecto(editTask.proyecto || '')
-      setEstado(editTask.estado || 'To Do')
-      setFechaInicio(editTask.fechaInicio || '')
-      setFechaVencimiento(editTask.fechaVencimiento || '')
-      setEtiqueta(editTask.etiqueta || 'Laura')
-      setNotas(editTask.notas || '')
-      setLinkDocumento(editTask.linkDocumento || '')
+    if (editRequisito) {
+      setTitulo(editRequisito.titulo || '')
+      setDescripcion(editRequisito.descripcion || '')
+      setProyecto(editRequisito.proyecto || '')
+      setEstado(editRequisito.estado || 'To Do')
+      setPrioridad(editRequisito.prioridad || 'Media')
+      setFechaInicio(editRequisito.fechaInicio || '')
+      setFechaVencimiento(editRequisito.fechaVencimiento || '')
+      setResponsable(editRequisito.responsable || 'Laura')
+      setNotas(editRequisito.notas || '')
+      setLinkDocumento(editRequisito.linkDocumento || '')
+      setDependencias(editRequisito.dependencias || [])
     }
-  }, [editTask, initialProyecto, state.proyectos])
+  }, [editRequisito, initialProyecto, state.proyectos])
+
+  const requisitosDelProyecto = state.requisitos.filter(r =>
+    r.proyecto === proyecto && (!editRequisito || r.id !== editRequisito.id)
+  )
+
+  const toggleDependencia = (id) => {
+    setDependencias(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
 
   const handleSubmit = (e) => {
     e.preventDefault()
     if (!titulo.trim() || !proyecto) return
 
-    const taskData = {
+    const payload = {
       titulo: titulo.trim(),
+      descripcion: descripcion.trim(),
       proyecto,
       estado,
-      fechaInicio: fechaInicio || null, 
-      fechaVencimiento: fechaVencimiento || null,
-      etiqueta,
-      notas: notes.trim(),
-      linkDocumento: linkDocumento.trim() || null
+      prioridad,
+      fechaInicio: fechaInicio || '',
+      fechaVencimiento: fechaVencimiento || '',
+      responsable,
+      notas: notas.trim(),
+      linkDocumento: linkDocumento.trim() || '',
+      dependencias
     }
 
-    if (editTask) {
-      // No incluimos "historia" aquí a propósito: si la tarea ya tenía un
-      // requerimiento vinculado (creado desde Proyectos, Tareas y Reqs), se preserva tal cual.
-      dispatch({ type: 'UPDATE_TASK', payload: { id: editTask.id, ...taskData } })
+    if (editRequisito) {
+      dispatch({ type: 'UPDATE_REQUISITO', payload: { id: editRequisito.id, ...payload } })
     } else {
-      dispatch({
-        type: 'ADD_TASK',
-        payload: {
-          id: Date.now().toString(),
-          enMiDia: false,
-          checklist: [],
-          historia: null,
-          ...taskData
-        }
-      })
+      dispatch({ type: 'ADD_REQUISITO', payload: { checklist: [], enMiDia: false, sprintId: null, ...payload } })
     }
     onClose()
   }
@@ -68,10 +74,10 @@ export default function TaskModal({ editTask, initialProyecto, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
       <div className="bg-surface-800 border border-white/10 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl text-slate-100 flex flex-col max-h-[90vh]">
-        
+
         <div className="px-6 py-4 border-b border-white/5 flex justify-between items-center bg-surface-850">
           <h2 className="text-lg font-display font-bold text-slate-200">
-            {editTask ? 'Editar Tarea' : 'Crear Nueva Tarea'}
+            {editRequisito ? 'Editar Requisito' : 'Crear Nuevo Requisito'}
           </h2>
           <button onClick={onClose} className="text-slate-500 hover:text-slate-300 p-1 rounded-lg hover:bg-white/5 transition-all">
             <X size={18} />
@@ -79,9 +85,9 @@ export default function TaskModal({ editTask, initialProyecto, onClose }) {
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
-          
+
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">Título de la tarea</label>
+            <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">Título</label>
             <input
               type="text"
               required
@@ -92,17 +98,28 @@ export default function TaskModal({ editTask, initialProyecto, onClose }) {
             />
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">Estado de la Tarea</label>
-            <select
-              value={estado}
-              onChange={(e) => setEstado(e.target.value)}
-              className="w-full bg-surface-700 border border-white/5 rounded-xl px-3 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-accent-violet/50 cursor-pointer"
-            >
-              {ESTADOS.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">Estado</label>
+              <select
+                value={estado}
+                onChange={(e) => setEstado(e.target.value)}
+                className="w-full bg-surface-700 border border-white/5 rounded-xl px-3 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-accent-violet/50 cursor-pointer"
+              >
+                {ESTADOS.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">Prioridad</label>
+              <select
+                value={prioridad}
+                onChange={(e) => setPrioridad(e.target.value)}
+                className="w-full bg-surface-700 border border-white/5 rounded-xl px-3 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-accent-violet/50 cursor-pointer"
+              >
+                {PRIORIDADES.map((p) => <option key={p} value={p}>{PRIORIDAD_CONFIG[p].label}</option>)}
+              </select>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -113,22 +130,18 @@ export default function TaskModal({ editTask, initialProyecto, onClose }) {
                 onChange={(e) => setProyecto(e.target.value)}
                 className="w-full bg-surface-700 border border-white/5 rounded-xl px-3 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-accent-violet/50 cursor-pointer"
               >
-                {state.proyectos.map((p) => (
-                  <option key={p.nombre} value={p.nombre}>{p.nombre}</option>
-                ))}
+                {state.proyectos.map((p) => <option key={p.nombre} value={p.nombre}>{p.nombre}</option>)}
               </select>
             </div>
 
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1"><Tag size={12} /> Responsable</label>
               <select
-                value={etiqueta}
-                onChange={(e) => setEtiqueta(e.target.value)}
+                value={responsable}
+                onChange={(e) => setResponsable(e.target.value)}
                 className="w-full bg-surface-700 border border-white/5 rounded-xl px-3 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-accent-violet/50 cursor-pointer"
               >
-                {ETIQUETAS_OPCIONES.map((opt) => (
-                  <option key={opt} value={opt}>{opt}</option>
-                ))}
+                {ETIQUETAS_OPCIONES.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
               </select>
             </div>
           </div>
@@ -161,7 +174,7 @@ export default function TaskModal({ editTask, initialProyecto, onClose }) {
 
           <div className="space-y-1.5">
             <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-              <Link2 size={12} /> Enlace del Documentación / Adjunto
+              <Link2 size={12} /> Enlace de documentación / adjunto
             </label>
             <input
               type="url"
@@ -172,15 +185,48 @@ export default function TaskModal({ editTask, initialProyecto, onClose }) {
             />
           </div>
 
+          <div className="space-y-1.5 bg-violet-950/10 p-3.5 rounded-xl border border-violet-500/10">
+            <label className="text-xs font-semibold uppercase tracking-wider text-violet-400 flex items-center gap-1.5">
+              <BookOpen size={13} /> Descripción / Historia de usuario
+            </label>
+            <textarea
+              placeholder="Ej: Como [rol] quiero [acción] para [beneficio]..."
+              value={descripcion}
+              onChange={(e) => setDescripcion(e.target.value)}
+              className="w-full h-20 bg-surface-700/60 text-xs text-slate-300 placeholder-slate-600 border border-white/5 rounded-lg p-3 focus:outline-none focus:border-violet-500/40 resize-none leading-relaxed"
+            />
+          </div>
+
+          {requisitosDelProyecto.length > 0 && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <GitBranch size={13} /> Depende de <span className="text-[10px] font-normal normal-case text-slate-500">(Opcional)</span>
+              </label>
+              <div className="max-h-28 overflow-y-auto space-y-1 bg-surface-700/40 border border-white/5 rounded-xl p-2">
+                {requisitosDelProyecto.map(r => (
+                  <label key={r.id} className="flex items-center gap-2 text-xs text-slate-300 px-1.5 py-1 rounded hover:bg-white/5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={dependencias.includes(r.id)}
+                      onChange={() => toggleDependencia(r.id)}
+                      className="accent-accent-violet rounded"
+                    />
+                    <span className="truncate">{r.titulo}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="space-y-1.5 bg-surface-750 p-3.5 rounded-xl border border-white/5">
             <label className="text-xs font-semibold uppercase tracking-wider text-accent-violet flex items-center gap-1.5">
               <FileText size={13} /> Notas
             </label>
             <textarea
-              placeholder="Detalles, contexto o comentarios sobre la tarea..."
-              value={notes}
+              placeholder="Detalles, contexto o comentarios..."
+              value={notas}
               onChange={(e) => setNotas(e.target.value)}
-              className="w-full h-24 bg-surface-700/60 text-xs text-slate-300 placeholder-slate-600 border border-white/5 rounded-lg p-3 focus:outline-none focus:border-accent-violet/40 resize-none leading-relaxed"
+              className="w-full h-20 bg-surface-700/60 text-xs text-slate-300 placeholder-slate-600 border border-white/5 rounded-lg p-3 focus:outline-none focus:border-accent-violet/40 resize-none leading-relaxed"
             />
           </div>
 
@@ -196,7 +242,7 @@ export default function TaskModal({ editTask, initialProyecto, onClose }) {
               type="submit"
               className="px-5 py-2 rounded-xl bg-accent-violet hover:bg-accent-violet/90 text-white text-sm font-semibold transition-all glow-violet"
             >
-              {editTask ? 'Guardar Cambios' : 'Crear Tarea'}
+              {editRequisito ? 'Guardar Cambios' : 'Crear Requisito'}
             </button>
           </div>
 

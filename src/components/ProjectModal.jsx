@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { X } from 'lucide-react'
-import { useTask } from '../context/TaskContext'
+import { useApp as useTask } from '../context/AppContext'
 
 export default function ProjectModal({ onClose, editProject }) {
   const { dispatch, state } = useTask()
