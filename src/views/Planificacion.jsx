@@ -699,6 +699,7 @@ function VistaTimeline() {
 
 const SEMANAS_VISIBLES = 4
 const MAX_TARJETAS_VISIBLES = 5
+const MAX_FILAS_SIN_ASIGNAR = 6
 
 // Tarjeta de un requisito. En el pool "Sin programar" muestra un desplegable para asignar
 // responsable directamente (sin drag&drop). Dentro del tablero es arrastrable entre semanas.
@@ -819,6 +820,15 @@ function VistaCarga() {
     !r.fechaInicio || !(r.responsable && ETIQUETAS_OPCIONES.includes(r.responsable))
   ), [requisitos])
 
+  // Ordenado por prioridad: Alta primero, luego Media, luego Baja
+  const PESO_PRIORIDAD = { Alta: 0, Media: 1, Baja: 2 }
+  const sinAsignarOrdenado = useMemo(() =>
+    [...sinAsignar].sort((a, b) => (PESO_PRIORIDAD[a.prioridad] ?? 1) - (PESO_PRIORIDAD[b.prioridad] ?? 1)),
+    [sinAsignar]
+  )
+
+  const [poolColapsado, setPoolColapsado] = useState(true)
+
   // Requisitos ya programados Y asignados a una persona real, dentro del rango de semanas visible
   const enTablero = useMemo(() => requisitos.filter(r => {
     if (!r.fechaInicio) return false
@@ -913,29 +923,6 @@ function VistaCarga() {
         </div>
       </div>
 
-      {/* Grupo único: sin asignar y/o sin programar */}
-      <div
-        onDragOver={handleDragOver}
-        onDrop={handleDropEnPool}
-        className="rounded-2xl border border-dashed border-white/10 bg-slate-950/20 p-4 space-y-3"
-      >
-        <div className="flex items-center justify-between">
-          <h3 className="text-xs font-bold text-slate-400 flex items-center gap-1.5">📥 Sin asignar <span className="text-[10px] font-normal normal-case text-slate-500">(sin responsable y/o sin fecha)</span></h3>
-          <span className="text-[10px] text-slate-500 font-mono bg-white/5 px-1.5 py-0.5 rounded">{sinAsignar.length}</span>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {sinAsignar.length === 0 ? (
-            <p className="text-[11px] text-slate-500 italic py-1">No hay requisitos pendientes de asignar o programar.</p>
-          ) : (
-            sinAsignar.map(r => (
-              <div key={r.id} className="w-56">
-                <TarjetaCarga requisito={r} onDragStart={handleDragStartTarjeta} showAssign onAssign={handleAsignarDesdePool} />
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-
       {/* Tablero por persona */}
       <div className="space-y-4">
         {ETIQUETAS_OPCIONES.map(responsable => (
@@ -950,6 +937,37 @@ function VistaCarga() {
             requisitosPersona={requisitosPorPersona(responsable)}
           />
         ))}
+      </div>
+
+      {/* Grupo único: sin asignar y/o sin programar (al final, colapsado por defecto) */}
+      <div
+        onDragOver={handleDragOver}
+        onDrop={handleDropEnPool}
+        className="rounded-2xl border border-dashed border-white/10 bg-slate-950/20 p-4 space-y-3"
+      >
+        <button
+          type="button"
+          onClick={() => setPoolColapsado(!poolColapsado)}
+          className="w-full flex items-center justify-between gap-2 text-left select-none"
+        >
+          <h3 className="text-xs font-bold text-slate-400 flex items-center gap-1.5">
+            {poolColapsado ? <ChevronRight size={14} className="text-slate-500" /> : <ChevronDown size={14} className="text-slate-500" />}
+            📥 Sin asignar <span className="text-[10px] font-normal normal-case text-slate-500">(sin responsable y/o sin fecha, ordenados por prioridad)</span>
+          </h3>
+          <span className="text-[10px] text-slate-500 font-mono bg-white/5 px-1.5 py-0.5 rounded">{sinAsignar.length}</span>
+        </button>
+
+        {!poolColapsado && (
+          sinAsignarOrdenado.length === 0 ? (
+            <p className="text-[11px] text-slate-500 italic py-1">No hay requisitos pendientes de asignar o programar.</p>
+          ) : (
+            <div className={`grid grid-cols-1 gap-2 ${sinAsignarOrdenado.length > MAX_FILAS_SIN_ASIGNAR ? 'max-h-[420px] overflow-y-auto pr-1 custom-scrollbar' : ''}`}>
+              {sinAsignarOrdenado.map(r => (
+                <TarjetaCarga key={r.id} requisito={r} onDragStart={handleDragStartTarjeta} showAssign onAssign={handleAsignarDesdePool} />
+              ))}
+            </div>
+          )
+        )}
       </div>
     </div>
   )
