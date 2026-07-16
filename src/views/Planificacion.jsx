@@ -814,31 +814,28 @@ function VistaCarga() {
   const rangoInicio = semanas[0].inicio
   const rangoFin = semanas[semanas.length - 1].fin
 
-  // Sin asignar: no tiene fecha de inicio (no se ha programado todavía)
-  const sinAsignar = useMemo(() => requisitos.filter(r => !r.fechaInicio), [requisitos])
+  // Grupo único: le falta fecha de inicio y/o responsable válido (antes eran dos grupos separados)
+  const sinAsignar = useMemo(() => requisitos.filter(r =>
+    !r.fechaInicio || !(r.responsable && ETIQUETAS_OPCIONES.includes(r.responsable))
+  ), [requisitos])
 
-  // Requisitos programados dentro del rango de semanas visible, agrupados por responsable + semana
+  // Requisitos ya programados Y asignados a una persona real, dentro del rango de semanas visible
   const enTablero = useMemo(() => requisitos.filter(r => {
     if (!r.fechaInicio) return false
+    if (!(r.responsable && ETIQUETAS_OPCIONES.includes(r.responsable))) return false
     try {
       const inicio = parseISO(r.fechaInicio)
       return inicio >= rangoInicio && inicio <= rangoFin
     } catch { return false }
   }), [requisitos, rangoInicio, rangoFin])
 
-  const responsablesTablero = [...ETIQUETAS_OPCIONES, 'Sin asignar']
-
   const celda = (responsable, semanaKey) => enTablero.filter(r => {
-    const respKey = r.responsable && ETIQUETAS_OPCIONES.includes(r.responsable) ? r.responsable : 'Sin asignar'
-    if (respKey !== responsable) return false
+    if (r.responsable !== responsable) return false
     try { return format(startOfWeek(parseISO(r.fechaInicio), { weekStartsOn: 1 }), 'yyyy-MM-dd') === semanaKey } catch { return false }
   })
 
   // Requisitos de cada persona para su Gantt individual (todas las fechas, no solo el rango visible)
-  const requisitosPorPersona = (responsable) => (state.requisitos || []).filter(r => {
-    const respKey = r.responsable && ETIQUETAS_OPCIONES.includes(r.responsable) ? r.responsable : 'Sin asignar'
-    return respKey === responsable
-  })
+  const requisitosPorPersona = (responsable) => (state.requisitos || []).filter(r => r.responsable === responsable)
 
   const navegar = (dir) => setFechaInicioVista(prev => addDays(prev, dir * 7))
 
@@ -871,7 +868,7 @@ function VistaCarga() {
       type: 'UPDATE_REQUISITO',
       payload: {
         id: requisito.id,
-        responsable: responsable === 'Sin asignar' ? '' : responsable,
+        responsable,
         fechaInicio: format(nuevaFechaInicio, 'yyyy-MM-dd'),
         fechaVencimiento: format(nuevaFechaFin, 'yyyy-MM-dd')
       }
@@ -882,28 +879,27 @@ function VistaCarga() {
     e.preventDefault()
     const id = e.dataTransfer.getData('text/plain')
     if (!id) return
-    // Devolver a "sin asignar": quita las fechas para que vuelva al pool
-    dispatch({ type: 'UPDATE_REQUISITO', payload: { id, fechaInicio: '', fechaVencimiento: '' } })
+    // Devolver al grupo único: quita fechas y responsable
+    dispatch({ type: 'UPDATE_REQUISITO', payload: { id, fechaInicio: '', fechaVencimiento: '', responsable: '' } })
   }
 
-  // Asignación directa desde el desplegable: responsable + semana actualmente visible (completa, lunes-domingo)
+  // Asignación directa desde el desplegable. Si el requisito ya tenía fechas, se conservan
+  // (solo se le pone responsable); si no, se programa en la semana actualmente visible.
   const handleAsignarDesdePool = (id, responsable) => {
-    dispatch({
-      type: 'UPDATE_REQUISITO',
-      payload: {
-        id,
-        responsable,
-        fechaInicio: format(rangoInicio, 'yyyy-MM-dd'),
-        fechaVencimiento: format(addDays(rangoInicio, 6), 'yyyy-MM-dd')
-      }
-    })
+    const requisito = requisitos.find(r => r.id === id)
+    const payload = { id, responsable }
+    if (!requisito?.fechaInicio || !requisito?.fechaVencimiento) {
+      payload.fechaInicio = format(rangoInicio, 'yyyy-MM-dd')
+      payload.fechaVencimiento = format(addDays(rangoInicio, 6), 'yyyy-MM-dd')
+    }
+    dispatch({ type: 'UPDATE_REQUISITO', payload })
   }
 
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <p className="text-xs text-slate-500">
-          Asigna un responsable desde "Sin programar" para moverlo al tablero (entra en la semana actual). Luego puedes arrastrarlo entre semanas o personas.
+          Asigna un responsable desde "Sin asignar" para moverlo al tablero, o arrástralo directamente a la semana de una persona.
         </p>
         <div className="flex items-center gap-1.5 bg-surface-800/90 border border-white/5 p-1 rounded-xl">
           <button type="button" onClick={() => navegar(-1)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors"><ChevronLeft size={14} strokeWidth={2.5} /></button>
@@ -917,23 +913,23 @@ function VistaCarga() {
         </div>
       </div>
 
-      {/* Pool de requisitos sin programar */}
+      {/* Grupo único: sin asignar y/o sin programar */}
       <div
         onDragOver={handleDragOver}
         onDrop={handleDropEnPool}
         className="rounded-2xl border border-dashed border-white/10 bg-slate-950/20 p-4 space-y-3"
       >
         <div className="flex items-center justify-between">
-          <h3 className="text-xs font-bold text-slate-400 flex items-center gap-1.5">📥 Sin programar <span className="text-[10px] font-normal normal-case text-slate-500">(sin fecha de inicio)</span></h3>
+          <h3 className="text-xs font-bold text-slate-400 flex items-center gap-1.5">📥 Sin asignar <span className="text-[10px] font-normal normal-case text-slate-500">(sin responsable y/o sin fecha)</span></h3>
           <span className="text-[10px] text-slate-500 font-mono bg-white/5 px-1.5 py-0.5 rounded">{sinAsignar.length}</span>
         </div>
         <div className="flex flex-wrap gap-2">
           {sinAsignar.length === 0 ? (
-            <p className="text-[11px] text-slate-500 italic py-1">No hay requisitos pendientes de programar.</p>
+            <p className="text-[11px] text-slate-500 italic py-1">No hay requisitos pendientes de asignar o programar.</p>
           ) : (
             sinAsignar.map(r => (
               <div key={r.id} className="w-56">
-                <TarjetaCarga requisito={r} draggable={false} showAssign onAssign={handleAsignarDesdePool} />
+                <TarjetaCarga requisito={r} onDragStart={handleDragStartTarjeta} showAssign onAssign={handleAsignarDesdePool} />
               </div>
             ))
           )}
@@ -942,7 +938,7 @@ function VistaCarga() {
 
       {/* Tablero por persona */}
       <div className="space-y-4">
-        {responsablesTablero.map(responsable => (
+        {ETIQUETAS_OPCIONES.map(responsable => (
           <PersonaBoard
             key={responsable}
             responsable={responsable}
