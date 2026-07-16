@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react'
 import { ClipboardList, ChevronDown, ChevronRight, Check, Circle, User, BarChart2, AlertTriangle, CheckCircle2, Clock, Layers, Plus, Trash2, Edit2, EyeOff, Eye, X } from 'lucide-react'
 import { format, parseISO, differenceInDays, addDays, startOfWeek, getISOWeek } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { useApp, getProjectColor, ESTADO_CONFIG, getEtiquetaColor } from '../context/AppContext'
+import { useApp, getProjectColor, ESTADO_CONFIG, getEtiquetaColor, PROYECTO_ESTADO_CONFIG } from '../context/AppContext'
 import PrioridadBadge from '../components/PrioridadBadge'
 
 // ─── Mini-Gantt de solo lectura, dentro de la tarjeta de proyecto ───
@@ -321,6 +321,9 @@ function ProjectReportCard({ proyecto, requisitos }) {
   const [creandoFase, setCreandoFase] = useState(false)
   const { state, dispatch } = useApp()
   const col = getProjectColor(proyecto, state.proyectos)
+  const proyectoObj = state.proyectos.find(p => p.nombre === proyecto)
+  const estadoProyecto = proyectoObj?.estado || 'Activo'
+  const estadoCfg = PROYECTO_ESTADO_CONFIG[estadoProyecto] || PROYECTO_ESTADO_CONFIG['Activo']
 
   const total = requisitos.length
   const completados = requisitos.filter(r => r.estado === 'Done').length
@@ -369,6 +372,7 @@ function ProjectReportCard({ proyecto, requisitos }) {
           <div className="text-slate-400 shrink-0">{collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}</div>
           <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: col.accent }} />
           <h2 className="font-display font-bold text-slate-100 text-base truncate">{proyecto}</h2>
+          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${estadoCfg.bg} ${estadoCfg.color} ${estadoCfg.border}`}>{estadoProyecto}</span>
           {vencidos > 0 && (
             <span className="flex items-center gap-1 text-[10px] text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-full font-medium">
               <AlertTriangle size={9} /> {vencidos} vencido{vencidos !== 1 ? 's' : ''}
@@ -459,6 +463,8 @@ function ProjectReportCard({ proyecto, requisitos }) {
 export default function Reports() {
   const { state } = useApp()
   const proyectosConTipo = state.proyectos.filter(p => p.tipo === 'Proyecto')
+  const proyectosActivos = proyectosConTipo.filter(p => (p.estado || 'Activo') === 'Activo').length
+  const proyectosCompletados = proyectosConTipo.filter(p => p.estado === 'Completado').length
 
   const totalRequisitos = (state.requisitos || []).length
   const completadosGlobal = (state.requisitos || []).filter(r => r.estado === 'Done').length
@@ -478,10 +484,18 @@ export default function Reports() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
         <div className="bg-surface-700/30 border border-white/5 rounded-xl p-4 text-center">
           <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Proyectos</p>
           <p className="text-2xl font-bold font-mono text-slate-100">{proyectosConTipo.length}</p>
+        </div>
+        <div className="bg-surface-700/30 border border-white/5 rounded-xl p-4 text-center">
+          <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Activos</p>
+          <p className="text-2xl font-bold font-mono text-emerald-400">{proyectosActivos}</p>
+        </div>
+        <div className="bg-surface-700/30 border border-white/5 rounded-xl p-4 text-center">
+          <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Proy. Completados</p>
+          <p className="text-2xl font-bold font-mono text-cyan-400">{proyectosCompletados}</p>
         </div>
         <div className="bg-surface-700/30 border border-white/5 rounded-xl p-4 text-center">
           <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Requisitos</p>

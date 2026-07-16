@@ -6,7 +6,7 @@ import {
   Sun, ArrowUp, ArrowDown, Calendar, User, Check, Circle, ListChecks, BarChart2, Users,
   Filter, Tag, ChevronLeft, GitBranch, X
 } from 'lucide-react'
-import { useApp, ESTADOS, ESTADO_CONFIG, getEtiquetaColor, getProjectColor, ETIQUETAS_OPCIONES } from '../context/AppContext'
+import { useApp, ESTADOS, ESTADO_CONFIG, getEtiquetaColor, getProjectColor, ETIQUETAS_OPCIONES, PROYECTO_ESTADOS, PROYECTO_ESTADO_CONFIG } from '../context/AppContext'
 import EstadoSelect from '../components/EstadoSelect'
 import PrioridadBadge from '../components/PrioridadBadge'
 import RequisitoModal from '../components/RequisitoModal'
@@ -265,6 +265,15 @@ function ProyectoGroup({ proyecto, requisitos, index, totalProyectos, onAdd, onE
           <span className="text-xs font-mono text-slate-500 bg-white/5 px-2 py-0.5 rounded-md shrink-0">
             {activas.length} activos {completadas.length > 0 && `· ${completadas.length} hechos`}
           </span>
+          <div onClick={(e) => e.stopPropagation()}>
+            <select
+              value={proyectoObj?.estado || 'Activo'}
+              onChange={(e) => dispatch({ type: 'UPDATE_PROJECT_ESTADO', payload: { nombre: proyecto, estado: e.target.value } })}
+              className={`text-[10px] font-semibold rounded-full pl-2 pr-1 py-1 border cursor-pointer focus:outline-none transition-all bg-transparent shrink-0 ${(PROYECTO_ESTADO_CONFIG[proyectoObj?.estado] || PROYECTO_ESTADO_CONFIG['Activo']).color} ${(PROYECTO_ESTADO_CONFIG[proyectoObj?.estado] || PROYECTO_ESTADO_CONFIG['Activo']).border}`}
+            >
+              {PROYECTO_ESTADOS.map(opt => <option key={opt} value={opt} className="bg-surface-700 text-slate-200">{opt}</option>)}
+            </select>
+          </div>
         </div>
 
         <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>

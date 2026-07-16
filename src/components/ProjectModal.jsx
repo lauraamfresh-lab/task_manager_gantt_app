@@ -1,11 +1,12 @@
 import React, { useState } from 'react'
 import { X } from 'lucide-react'
-import { useApp as useTask } from '../context/AppContext'
+import { useApp as useTask, PROYECTO_ESTADOS } from '../context/AppContext'
 
 export default function ProjectModal({ onClose, editProject }) {
   const { dispatch, state } = useTask()
   const [name, setName] = useState(editProject ? editProject.nombre : '')
   const [tipo, setTipo] = useState(editProject ? editProject.tipo : 'Proyecto')
+  const [estado, setEstado] = useState(editProject ? (editProject.estado || 'Activo') : 'Activo')
   const [error, setError] = useState('')
 
   function handleSubmit(e) {
@@ -23,9 +24,9 @@ export default function ProjectModal({ onClose, editProject }) {
     }
 
     if (editProject) {
-      dispatch({ type: 'UPDATE_PROJECT', payload: { oldName: editProject.nombre, newName: trimmedName, tipo } })
+      dispatch({ type: 'UPDATE_PROJECT', payload: { oldName: editProject.nombre, newName: trimmedName, tipo, estado } })
     } else {
-      dispatch({ type: 'ADD_PROJECT', payload: { nombre: trimmedName, tipo } })
+      dispatch({ type: 'ADD_PROJECT', payload: { nombre: trimmedName, tipo, estado } })
     }
     onClose()
   }
@@ -71,6 +72,17 @@ export default function ProjectModal({ onClose, editProject }) {
             >
               <option value="Proyecto" className="bg-surface-700">Proyecto</option>
               <option value="Operativa" className="bg-surface-700">Operativa</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1.5">Estado del proyecto</label>
+            <select
+              value={estado}
+              onChange={(e) => setEstado(e.target.value)}
+              className="w-full bg-surface-600 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-accent-violet/60 transition-colors cursor-pointer"
+            >
+              {PROYECTO_ESTADOS.map(opt => <option key={opt} value={opt} className="bg-surface-700">{opt}</option>)}
             </select>
           </div>
 
