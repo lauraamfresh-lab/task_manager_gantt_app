@@ -261,7 +261,7 @@ function reducer(state, action) {
 
     // ─── Sprints / Fases (usadas en Informes) ───
     case 'ADD_SPRINT':
-      return { ...state, sprints: [...(state.sprints || []), { descripcion: '', ...action.payload }] }
+      return { ...state, sprints: [...(state.sprints || []), { descripcion: '', completada: false, ...action.payload }] }
     case 'UPDATE_REQUISITO_SPRINT':
       return {
         ...state,
