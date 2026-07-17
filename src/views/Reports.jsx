@@ -220,12 +220,24 @@ function FaseBlock({ fase, requisitosFase, onDrop, onDragOver, isBacklog = false
           ) : (
             <div className="min-w-0 flex-1 space-y-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className={`text-sm font-bold ${isBacklog ? 'text-slate-400' : 'text-slate-200'}`}>
+                {!isBacklog && (
+                  <button
+                    onClick={() => onEdit(fase.id, { completada: !fase.completada })}
+                    className={`shrink-0 transition-colors ${fase.completada ? 'text-emerald-400' : 'text-slate-500 hover:text-slate-300'}`}
+                    title={fase.completada ? 'Marcar fase como no completada' : 'Marcar fase como completada'}
+                  >
+                    {fase.completada ? <CheckCircle2 size={16} /> : <Circle size={16} />}
+                  </button>
+                )}
+                <span className={`text-sm font-bold ${isBacklog ? 'text-slate-400' : fase.completada ? 'text-emerald-400' : 'text-slate-200'}`}>
                   {isBacklog ? '📥 Requisitos sin asignar' : fase.nombre}
                 </span>
                 <span className="text-[10px] text-slate-500 font-mono bg-white/5 px-1.5 py-0.5 rounded shrink-0">
                   {requisitosFase.length} {requisitosFase.length === 1 ? 'req' : 'reqs'}
                 </span>
+                {!isBacklog && fase.completada && (
+                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shrink-0">Completada</span>
+                )}
               </div>
               {!isBacklog && (
                 fase.descripcion ? (
