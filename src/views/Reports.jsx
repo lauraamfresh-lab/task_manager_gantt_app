@@ -512,12 +512,12 @@ export default function Reports() {
           <p className="text-2xl font-bold font-mono text-amber-400">{proyectosPausados.length}</p>
         </div>
       
-        
+        {/*
         <div className="bg-surface-700/30 border border-white/5 rounded-xl p-4 text-center"> 
           <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Proy. Completados</p>
           <p className="text-2xl font-bold font-mono text-cyan-400">{proyectosCompletados.length}</p>
         </div>
-        
+        */}
         <div className="bg-surface-700/30 border border-white/5 rounded-xl p-4 text-center">
           <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Requisitos</p>
           <p className="text-2xl font-bold font-mono text-slate-100">{totalRequisitos}</p>
